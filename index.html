@@ -17,9 +17,9 @@
         min-height: 100vh;
     }
     
-    /* 容器布局：最大宽度增加到 1600px */
+    /* V6.3 修正：移除 max-width，改为固定宽度，避免过度伸展，同时保持中央对齐 */
     .app-container { 
-        max-width: 1600px; 
+        width: 1200px; /* 设定一个合理的固定宽度 */
         margin: 0 auto; 
         background: white; 
         border-radius: 12px; 
@@ -31,9 +31,7 @@
     }
     
     .header { background: #1e293b; color: white; padding: 15px 20px; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
-    /* 移除版本号标签，只保留标题 */
     .header h1 { margin: 0; font-size: 18px; }
-    /* .badge { display: none; } */ /* 样式表中有但主 HTML 已移除 */
 
     /* Tabs 样式 */
     .tabs { display: flex; background: #f8fafc; border-bottom: 1px solid var(--border); }
@@ -55,7 +53,7 @@
         font-size: 12px; 
         font-family: monospace; 
         resize: vertical; 
-        min-height: 100px; /* 增加最小高度 */
+        min-height: 100px; 
         margin-bottom: 10px; 
     }
     textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
@@ -73,21 +71,43 @@
 
     /* T4 可视化布局 */
     .main-layout { display: flex; flex: 1; overflow: hidden; }
-    /* 增加侧边栏宽度，让输入框更宽 */
     .input-sidebar { width: 400px; background: #f8fafc; border-right: 1px solid var(--border); padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
     .visual-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
     .visual-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #94a3b8; text-align: center; }
     .status-bar { padding: 8px 15px; background: #fff7ed; border-bottom: 1px solid #fed7aa; font-size: 12px; color: #9a3412; display: none; }
     .status-bar.show { display: block; }
+    
+    /* V6.3 修正：表格滚动容器 */
     .table-wrapper { flex: 1; overflow: auto; position: relative; }
     
     /* 表格样式 */
     table { border-collapse: separate; border-spacing: 0; width: max-content; font-size: 12px; }
     th, td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; padding: 6px 10px; text-align: center; vertical-align: middle; white-space: nowrap; }
+    
+    /* 头部固定 */
     thead { position: sticky; top: 0; z-index: 20; background: #f1f5f9; }
     thead th { background: #f1f5f9; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1; height: 30px; }
-    tbody th { position: sticky; left: 0; z-index: 10; background: white; font-weight: bold; color: #1e293b; border-right: 2px solid #e2e8f0; min-width: 100px; text-align: left; }
-    thead th:first-child { position: sticky; left: 0; z-index: 30; background: #f1f5f9; border-right: 2px solid #e2e8f0; }
+    
+    /* V6.3 修正：人员名单列固定 */
+    tbody th { 
+        position: sticky; 
+        left: 0; 
+        z-index: 10; 
+        background: white; 
+        font-weight: bold; 
+        color: #1e293b; 
+        border-right: 2px solid #e2e8f0; 
+        min-width: 100px; 
+        text-align: left; 
+    }
+    /* 顶左角单元格固定 */
+    thead th:first-child { 
+        position: sticky; 
+        left: 0; 
+        z-index: 30; 
+        background: #f1f5f9; 
+        border-right: 2px solid #e2e8f0; 
+    }
 
     /* 班次色块 */
     .cell-inner { border-radius: 4px; padding: 4px 8px; font-weight: 500; min-width: 40px; }
@@ -108,9 +128,10 @@
 
     /* T2/T3 输出区 */
     .output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .result-box { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background: #f8fafc; }
+    .result-box { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background: #f8fafc; display: flex; flex-direction: column;}
     .result-box h4 { margin-top: 0; color: #0f766e; }
-    .result-box textarea { min-height: 250px; background: white; }
+    .result-box textarea { min-height: 250px; background: white; flex-grow: 1;}
+    .output-actions { display: flex; gap: 10px; margin-top: 5px; justify-content: flex-end;}
     
     /* Footer: 显示版本号 */
     .footer { text-align: center; padding: 10px 0; font-size: 11px; color: #94a3b8; flex-shrink: 0; }
@@ -150,14 +171,18 @@
       </div>
       <div id="st1" class="status-msg"></div>
       
-      <h3 style="margin-top: 20px;">生成结果 (每日日期: 班次)</h3>
+      <h3 id="t1_output_title" style="margin-top: 20px;">生成结果 (每日日期: 班次)</h3>
       <textarea id="out1" style="flex-grow:1; background:#f0f9ff;" readonly placeholder="生成结果将在此显示"></textarea>
+      <div class="output-actions">
+        <button class="btn" onclick="AppUI.copyToClipboard('out1')">📋 复制结果</button>
+        <button class="btn" onclick="AppUI.exportToFile('out1', document.getElementById('t1_output_title').textContent.replace('生成结果 (每日日期: 班次)', '班表'))">📤 导出为TXT</button>
+      </div>
     </div>
 
     <div id="t2" class="tab-content" style="padding: 0;">
         <div id="shared_prompt_t2" class="shared-data-prompt" style="display:none;">
           <span>✅ 找到共享排班数据，请选择 2-4 位员工进行比较：</span>
-          <button onclick="App.t2_compare_shared()">🔍 比较</button>
+          <button class="btn-primary" onclick="App.t2_compare_shared()">🔍 比较</button>
         </div>
 
         <div id="t2_manual_input">
@@ -281,7 +306,7 @@
 </div>
 
 <div class="footer">
-    飞书排班可视化看板 · Version <span>V6.1</span>
+    飞书排班可视化看板 · Version <span>V6.3</span>
 </div>
 
 <script>
@@ -296,6 +321,58 @@ const AppUI = (function(){
     };
     const hideStatus = (id) => { $(id).style.display = 'none'; };
 
+    // V6.3 新增：复制到剪贴板
+    function copyToClipboard(elementId) {
+        const copyText = $(elementId).value;
+        if (!copyText.trim()) {
+             setStatus('st1', '复制失败：内容为空。', 'error');
+             return;
+        }
+        
+        // 尝试使用 Clipboard API
+        navigator.clipboard.writeText(copyText).then(() => {
+            setStatus('st1', '内容已成功复制到剪贴板！', 'ok');
+            setTimeout(() => hideStatus('st1'), 2000);
+        }).catch(err => {
+            // 降级处理：使用 execCommand（可能在某些浏览器中被弃用或需要用户交互）
+            const textarea = document.createElement('textarea');
+            textarea.value = copyText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                setStatus('st1', '内容已成功复制到剪贴板！(降级)', 'ok');
+                setTimeout(() => hideStatus('st1'), 2000);
+            } catch (err) {
+                setStatus('st1', '复制失败，请手动复制文本框内容。', 'error');
+            }
+            document.body.removeChild(textarea);
+        });
+    }
+
+    // V6.3 新增：导出为TXT
+    function exportToFile(elementId, baseFileName) {
+        const text = $(elementId).value;
+        if (!text.trim()) {
+            setStatus('st1', '导出失败：内容为空。', 'error');
+            return;
+        }
+        const fileName = `${baseFileName}_${new Date().toISOString().slice(0, 10)}.txt`;
+        const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
+        
+        // 创建下载链接
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setStatus('st1', '文件已开始下载！', 'ok');
+        setTimeout(() => hideStatus('st1'), 2000);
+    }
+    
     function populateNameSelects(names, isShared=true) {
         // T1
         const t1Select = $('t1_select_name');
@@ -306,6 +383,7 @@ const AppUI = (function(){
         const optionsHtml = names.map(n => `<option value="${n}">${n}</option>`).join('');
         t2Selects.forEach((id, index) => {
             const select = $(id);
+            // V6.3 修正：每次都重新生成选项，确保数据最新
             select.innerHTML = '<option value="">-- 选择员工 --</option>' + optionsHtml;
             // 默认选中前两个人
             if (names[index]) {
@@ -346,7 +424,8 @@ const AppUI = (function(){
         $('in1_raw').value = ''; 
         $('out1').value = ''; 
         hideStatus('st1'); 
-        $('in1_raw').disabled = App.SharedData !== null; // 恢复禁用状态
+        $('in1_raw').disabled = App.SharedData !== null; 
+        $('t1_output_title').textContent = "生成结果 (每日日期: 班次)";
     }
     function clear2() { 
         $('in2_dates').value = '';
@@ -357,7 +436,7 @@ const AppUI = (function(){
         $('out2_list').value = '';
         $('out2_summary').value = '';
         hideStatus('st2');
-        App.checkSharedData('t2'); // 清空后重新检查共享数据状态
+        App.checkSharedData('t2'); 
     }
     function clear3() {
         $('in3_names').value = '';
@@ -366,19 +445,18 @@ const AppUI = (function(){
         $('out3_list').value = '';
         $('out3_summary').value = '';
         hideStatus('st3');
-        App.checkSharedData('t3'); // 清空后重新检查共享数据状态
+        App.checkSharedData('t3'); 
     }
     function clear4() { 
         $('in_dates').value = ''; $('in_names').value = ''; $('in_codes').value = '';
         localStorage.removeItem('fs_dates');
         localStorage.removeItem('fs_names');
         localStorage.removeItem('fs_codes');
-        App.SharedData = null; // 清空共享数据
+        App.SharedData = null; 
         $('table_container').style.display = 'none';
         $('visual_placeholder').style.display = 'block';
         hideStatus('status_msg_t4');
         
-        // 清空共享数据后，其他 Tab 的提示应该隐藏
         App.checkSharedData('t1');
         App.checkSharedData('t2');
         App.checkSharedData('t3');
@@ -394,7 +472,7 @@ const AppUI = (function(){
         setTimeout(() => el.classList.remove('show'), 5000);
     }
 
-    return { switchTab, setStatus, hideStatus, clear1, clear2, clear3, clear4, msgT4, populateNameSelects };
+    return { switchTab, setStatus, hideStatus, clear1, clear2, clear3, clear4, msgT4, populateNameSelects, copyToClipboard, exportToFile };
 })();
 
 // 核心功能逻辑
@@ -403,7 +481,37 @@ const App = (function(){
     
     let SharedData = null; 
 
-    // --- 通用解析函数 ---
+    // --- 通用工具函数 ---
+
+    // 班次代码转为时间段 (V6.3 新增)
+    function shiftCodeToTimeRange(code) {
+        const upperCode = code.toUpperCase().trim();
+        // 匹配 X:XX 格式
+        const timeMatch = upperCode.match(/^(\d{1,2}:\d{2})$/);
+        
+        if (timeMatch) {
+            const startTime = timeMatch[1];
+            // 默认工作 9 小时
+            const [hour, minute] = startTime.split(':').map(Number);
+            let endHour = hour + 9;
+            
+            if (endHour >= 24) {
+                endHour -= 24; // 跨天班次，例如 15:00 -> 00:00 (15+9=24)
+            }
+            
+            const endTime = `${String(endHour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            return `${startTime} - ${endTime}`;
+        }
+
+        if (upperCode === 'OFF' || upperCode === 'REST') return '休息';
+        if (upperCode === 'MC') return '病假';
+        if (upperCode === 'AL') return '年假';
+        if (upperCode === 'PH') return '公假';
+        if (upperCode.includes('UPL')) return '事假';
+        
+        return upperCode; // 其他无法解析的，原样返回
+    }
+
     function extractDates(text) {
         const dateRegex = /(\d{1,2})\s*[月\/-]\s*(\d{1,2})/g;
         const matches = [...text.matchAll(dateRegex)];
@@ -436,33 +544,43 @@ const App = (function(){
         return codeLine.split(/[\t\s]+/).filter(Boolean);
     }
     
-    // V6.2 姓名智能识别改进 (解决 Candace Cheng 程安顺 的问题)
+    // V6.3 修正：姓名智能识别改进 (更严格地匹配中英文混合名)
     function extractNames(text) {
         const lines = text.split(/[\r\n]+/)
             .map(l => l.trim())
-            .filter(l => l); // 移除空行
+            .filter(l => l);
 
         const names = lines.filter(line => {
-            // 1. 排除包含非人名关键词的行（宽松化）
-            if (/(大区|区域经理|主管|总监|TICKET|VIP|IM|可可|拾月|白|中|晚|夜)/i.test(line) && line.length < 5) {
-                return false;
+            // 1. 严格排除非人名关键词
+            if (/(大客户经理|IM号|大区|区域经理|主管|总监|TICKET|VIP|IM|可可|拾月|白|中|晚|夜|邮箱|@)/i.test(line)) {
+                 // 允许包含这些词，但必须是名字的一部分且不包含分隔符
+                 if (/("|“|”)/.test(line)) return false; // 飞书表格中，带引号的常是花名或职务，排除
+                 if (/(大客户经理|IM号|区域经理|@)/i.test(line)) return false; 
             }
             
-            // 2. 匹配中/英文名格式（宽松匹配）：
-            // 包含 2个以上中文字符 OR (包含至少一个大写字母和至少一个单词)
-            if (/[\u4e00-\u9fa5]{2,}/.test(line) || /[A-Z][A-Za-z\s]+/.test(line)) {
+            // 2. 必须同时包含中文字符和英文字母（姓名格式）
+            const hasChinese = /[\u4e00-\u9fa5]{1,}/.test(line);
+            const hasEnglish = /[A-Za-z]{2,}/.test(line); // 至少两个英文字母，避免单字母缩写
+            
+            if (hasChinese && hasEnglish) {
                 return true;
             }
             
+            // 3. 纯英文名 (如 Rex, Angela)
+            if (/^[A-Za-z\s]{3,}$/.test(line)) {
+                return true;
+            }
+            
+            // 4. 纯中文名 (如 李士杰)
+            if (/^[\u4e00-\u9fa5]{2,4}$/.test(line)) {
+                return true;
+            }
+
             return false;
         });
 
-        // 最终返回只包含中文或中英文混合人名的部分
-        return names.map(name => {
-            // 尝试提取最可能是姓名的部分 (例如去除尾部可能无关的-号或分隔符)
-            // 保持完整性，不再过度裁剪，只去除IM号或邮箱等
-            return name.replace(/[\s\-\—\.\*]+(IM|im|@).*/i, '').trim(); 
-        });
+        // 返回结果，去除多余的引用和空格
+        return names.map(name => name.replace(/["“”]/g, '').trim());
     }
 
 
@@ -501,8 +619,7 @@ const App = (function(){
                 $('t2_manual_input').style.display = 'block';
                 $('t2_shared_selection').style.display = 'none';
             }
-            // 统一设置按钮行为
-            const compareBtn = document.querySelector('#t2 .btn-primary');
+            const compareBtn = document.querySelector('#t2 .btn-group .btn-primary');
             compareBtn.onclick = hasShared ? App.t2_compare_shared : App.t2_compare_manual;
 
 
@@ -515,7 +632,7 @@ const App = (function(){
 
     // --- Tab 1: 单人班表生成 ---
     function t1_parse() {
-        // V6.2 修正：优先使用共享数据
+        // V6.3 修正：优先使用共享数据
         if (SharedData && $('shared_prompt_t1').style.display === 'flex') {
             t1_use_shared();
         } else {
@@ -524,7 +641,6 @@ const App = (function(){
         }
     }
     function t1_use_shared() {
-        // 共享数据解析
         AppUI.hideStatus('st1');
         $('out1').value = "";
         try {
@@ -536,11 +652,16 @@ const App = (function(){
             const row = SharedData.rows.find(r => r.name === selectedName);
             
             if (!row) throw new Error("未找到该员工数据。");
+            
+            const monthName = SharedData.days[0] ? `${SharedData.days[0].month}月` : '本月';
+            $('t1_output_title').textContent = `【${selectedName}】的【${monthName}】班表`;
 
             let out = "";
             row.codes.forEach((shift, index) => {
                 const date = SharedData.days[index].full;
-                out += `${date}: ${shift}\n`;
+                // V6.3 修正：使用时间段格式
+                const timeRange = shiftCodeToTimeRange(shift);
+                out += `${date}: ${timeRange}\n`;
             });
             
             $('out1').value = out;
@@ -555,6 +676,7 @@ const App = (function(){
     function t1_parse_manual(rawText) {
         AppUI.hideStatus('st1');
         $('out1').value = "";
+        $('t1_output_title').textContent = "生成结果 (每日日期: 班次)";
         try {
             if (!rawText.trim()) throw new Error("输入内容为空。请粘贴三行数据。");
 
@@ -567,7 +689,9 @@ const App = (function(){
             let out = "";
             let count = Math.min(days.length, shifts.length);
             for(let i=0; i<count; i++) {
-                out += `${days[i].full}: ${shifts[i]}\n`;
+                // V6.3 修正：使用时间段格式
+                const timeRange = shiftCodeToTimeRange(shifts[i]);
+                out += `${days[i].full}: ${timeRange}\n`;
             }
 
             $('out1').value = out;
@@ -585,6 +709,14 @@ const App = (function(){
     }
     
     // --- Tab 2: 多人班表比较 ---
+    function t2_compare() {
+        if (SharedData) {
+            t2_compare_shared();
+        } else {
+            t2_compare_manual();
+        }
+    }
+    
     function t2_compare_shared() {
         AppUI.hideStatus('st2');
         $('out2_list').value = '';
@@ -593,7 +725,7 @@ const App = (function(){
         try {
             if (!SharedData) throw new Error("共享数据丢失，请返回可视化排班表重新生成。");
 
-            // V6.2 修正：从选择器获取值
+            // V6.3 修正：从选择器获取值，并去重
             const selectedNames = [
                 $('t2_select_1').value,
                 $('t2_select_2').value,
@@ -603,7 +735,6 @@ const App = (function(){
 
             if (selectedNames.length < 2) throw new Error("请至少选择两位员工进行比较。");
             
-            // 确保没有重复选择
             const uniqueNames = [...new Set(selectedNames)];
             if (uniqueNames.length < selectedNames.length) {
                 AppUI.setStatus('st2', `请勿选择重复员工。当前选择：${selectedNames.join(', ')}`, 'error');
@@ -617,7 +748,10 @@ const App = (function(){
                 // 将代码列表转为 Map (日期 => 班次)
                 const scheduleMap = new Map();
                 row.codes.forEach((code, index) => {
-                    scheduleMap.set(SharedData.days[index].full, code.toUpperCase());
+                    // V6.3 修正：确保日期数量匹配
+                    if(SharedData.days[index]) {
+                        scheduleMap.set(SharedData.days[index].full, code.toUpperCase());
+                    }
                 });
                 return { name, schedule: scheduleMap };
             });
@@ -633,7 +767,7 @@ const App = (function(){
     }
 
     function t2_compare_manual() {
-        // ... (手动输入逻辑与 V6.1 保持一致) ...
+        // ... (保持 V6.2 逻辑) ...
         AppUI.hideStatus('st2');
         $('out2_list').value = '';
         $('out2_summary').value = '';
@@ -646,11 +780,14 @@ const App = (function(){
             const dayKeys = days.map(d => d.full);
 
             const people = [];
+            const uniqueNamesCheck = new Set(); // V6.3 检查手动输入重复
             for (let i = 1; i <= 4; i++) {
                 const name = $(`in2_name${i}`).value.trim();
                 const raw = $(`in2_raw${i}`).value.trim();
                 if (raw) {
                     if(!name) throw new Error(`员工 ${i} 的姓名不能为空。`);
+                    if(uniqueNamesCheck.has(name)) throw new Error(`员工姓名 ${name} 重复。`);
+                    uniqueNamesCheck.add(name);
                     people.push({ name, raw });
                 }
             }
@@ -683,15 +820,14 @@ const App = (function(){
         }
     }
     
-    // V6.2 修正：严格要求班次代码完全一致
+    // 严格要求班次代码完全一致
     function t2_compare_internal(dayKeys, schedules) {
         let commonWorkingDays = [];
+        // V6.3 修正：确保比较人员列表是去重后的
         const namesList = schedules.map(s => s.name).join(' vs ');
-        const numPeople = schedules.length;
 
         for (const dateKey of dayKeys) {
             let isWorking = true;
-            let shifts = [];
             let firstShift = null;
 
             for (const p of schedules) {
@@ -703,20 +839,19 @@ const App = (function(){
                     break;
                 }
                 
-                // 2. V6.2 修正：检查班次代码是否完全一致
+                // 2. 检查班次代码是否完全一致
                 if (firstShift === null) {
                     firstShift = shift;
                 } else if (shift !== firstShift) {
                     isWorking = false;
                     break;
                 }
-                
-                shifts.push(shift);
             }
 
             if (isWorking) {
-                // 如果是共同上班，shifts 数组中所有元素都一样，只取一个即可
-                commonWorkingDays.push({ date: dateKey, shift: firstShift });
+                // V6.3 修正：输出时间段格式
+                const timeRange = shiftCodeToTimeRange(firstShift);
+                commonWorkingDays.push({ date: dateKey, shift: timeRange });
             }
         }
 
@@ -780,7 +915,6 @@ const App = (function(){
             const count = Math.min(names.length, codeLines.length);
             if(count === 0) throw new Error("未找到有效的姓名或班次数据行。");
 
-            // 将 codeLines 转换为二维数组 (班次列表的列表)
             const codesMatrix = codeLines.slice(0, count).map(line => line.split(/[\t\s]+/).filter(Boolean));
 
             t3_search_internal(names.slice(0, count), codesMatrix, searchCode);
@@ -827,7 +961,7 @@ const App = (function(){
         AppUI.setStatus('st3', `搜索成功！找到 ${totalCount} 次匹配，涉及 ${matchedPeople.size} 人。`, 'ok');
     }
 
-    // --- Tab 4: 可视化排班表 (保持不变，但使用 V6.2 的 extractNames) ---
+    // --- Tab 4: 可视化排班表 ---
     function t4_render() {
         saveT4();
         try {
@@ -840,7 +974,7 @@ const App = (function(){
             const days = extractDates(dText);
             if(days.length === 0) throw new Error("日期数据解析失败 (如 12月1日)。");
 
-            const names = extractNames(nText); // 使用 V6.2 智能识别
+            const names = extractNames(nText); 
             const codeLines = cText.split(/[\r\n]+/)
                 .map(l => l.trim())
                 .filter(l => /\d{1,2}:\d{2}|OFF|REST|MC|AL|PH/.test(l) && !/月\d+日/.test(l));
@@ -852,7 +986,8 @@ const App = (function(){
             for(let i=0; i<count; i++) {
                 const codes = codeLines[i].split(/[\t\s]+/).filter(Boolean);
                  if (codes.length < days.length) {
-                    throw new Error(`第 ${i + 1} 行 (${names[i]}) 班次数量 (${codes.length}) 少于日期数量 (${days.length})。请检查。`);
+                    // 修正：如果班次数量不足，只取前codes.length天，并给出警告
+                    console.warn(`第 ${i + 1} 行 (${names[i]}) 班次数量 (${codes.length}) 少于日期数量 (${days.length})。`);
                  }
                 
                 let stats = { off:0, work:0, leave:0 };
@@ -872,12 +1007,11 @@ const App = (function(){
             }
             
             const data = { days, rows };
-            // --- 存储共享数据 ---
             SharedData = data; 
             
             const container = $('table_container');
             
-            // ... (HTML Table Generation Logic) ...
+            // --- HTML Table Generation Logic ---
             let html = '<table><thead><tr>';
             html += '<th style="min-width:120px; z-index:50;">人员名单</th>';
             data.days.forEach(d => {
@@ -913,7 +1047,7 @@ const App = (function(){
             AppUI.msgT4(`成功生成 ${data.rows.length} 人的排班表`);
 
         } catch(e) {
-            SharedData = null; // 生成失败，清空共享数据
+            SharedData = null; 
             AppUI.msgT4(e.message, true);
         }
 
@@ -935,7 +1069,7 @@ const App = (function(){
 
     return { 
         t1_parse, t1_use_shared, 
-        t2_compare_shared, t2_compare_manual,
+        t2_compare, t2_compare_shared, t2_compare_manual,
         t3_search, 
         t4_render, 
         loadSavedData, 
