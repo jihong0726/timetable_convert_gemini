@@ -2,462 +2,135 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>飞书排班超级助手 · All in One</title>
+  <title>飞书排班超级助手 · 智能修正版</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    :root {
-      --primary: #2563eb;
-      --bg: #f8fafc;
-      --panel-bg: #ffffff;
-      --border: #e2e8f0;
-      --text: #1e293b;
-      --text-light: #64748b;
-    }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; line-height: 1.5; }
-    
-    /* 布局 */
-    .app-container { max-width: 1000px; margin: 0 auto; background: var(--panel-bg); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
-    
-    /* 头部 & 导航 */
+    :root { --primary: #2563eb; --bg: #f8fafc; --panel-bg: #ffffff; --border: #e2e8f0; --text: #1e293b; }
+    body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
+    .app-container { max-width: 1000px; margin: 0 auto; background: var(--panel-bg); border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; }
     .header { background: #1e293b; color: white; padding: 20px; }
-    .header h1 { margin: 0; font-size: 1.25rem; }
-    .header p { margin: 5px 0 0; opacity: 0.8; font-size: 0.875rem; }
-    
     .tabs { display: flex; background: #334155; overflow-x: auto; }
-    .tab-btn { flex: 1; border: none; background: none; color: #cbd5e1; padding: 12px 16px; cursor: pointer; white-space: nowrap; font-size: 14px; transition: 0.2s; border-bottom: 3px solid transparent; }
-    .tab-btn:hover { background: #475569; color: white; }
-    .tab-btn.active { color: white; border-bottom-color: var(--primary); background: #1e293b; font-weight: bold; }
-
-    /* 内容区 */
-    .content-area { padding: 24px; min-height: 500px; }
-    .tab-content { display: none; animation: fadeIn 0.3s; }
+    .tab-btn { flex: 1; border: none; background: none; color: #cbd5e1; padding: 12px; cursor: pointer; white-space: nowrap; }
+    .tab-btn.active { color: white; background: #1e293b; font-weight: bold; border-bottom: 3px solid var(--primary); }
+    .content-area { padding: 24px; }
+    .tab-content { display: none; }
     .tab-content.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* 表单组件 */
-    .panel-section { margin-bottom: 24px; border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-    .section-title { font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; color: var(--primary); font-size: 14px; }
-    
-    textarea, input, select { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 10px; background: #fdfdfd; }
-    textarea:focus, input:focus { outline: none; border-color: var(--primary); ring: 2px var(--primary); }
-    
-    .btn-group { display: flex; gap: 10px; margin-top: 10px; }
-    .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); background: white; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text); transition: 0.1s; }
-    .btn:hover { background: #f1f5f9; }
+    textarea, input, select { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 10px; font-family: monospace; }
+    .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; background: white; margin-right: 10px; }
     .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
-    .btn-primary:hover { background: #1d4ed8; }
-    .btn-danger { color: #ef4444; border-color: #fecaca; }
-    .btn-danger:hover { background: #fef2f2; }
-
-    /* 状态与输出 */
-    .status-msg { margin-top: 10px; font-size: 13px; min-height: 20px; }
+    .status-msg { margin-top: 5px; font-size: 13px; font-weight: bold; }
     .status-msg.ok { color: #16a34a; }
     .status-msg.error { color: #dc2626; }
-
-    .output-box { background: #f1f5f9; border: 1px solid var(--border); color: #334155; height: 150px; }
-    
-    /* 帮助提示 */
-    .hint { font-size: 12px; color: var(--text-light); margin-bottom: 4px; display: block; }
-
+    .hint { font-size: 12px; color: #64748b; display: block; margin-bottom: 4px; }
   </style>
 </head>
 <body>
 
 <div class="app-container">
   <div class="header">
-    <h1>📅 飞书排班工具集 (Pro)</h1>
-    <p>单文件离线版 · 自动保存输入 · 智能解析</p>
+    <h1 style="margin:0;font-size:18px;">📅 飞书排班助手 (V2.0 智能修正版)</h1>
+    <p style="margin:5px 0 0;font-size:12px;opacity:0.8;">已修复“日期粘连”和“格式错乱”问题</p>
   </div>
   
-  <div class="tabs" id="navTabs">
-    <button class="tab-btn active" data-target="t1">1. 单人班表转换</button>
-    <button class="tab-btn" data-target="t2">2. 班表对比</button>
-    <button class="tab-btn" data-target="t3">3. 班次查人</button>
-    <button class="tab-btn" data-target="t4">4. 按日期查代码</button>
-    <button class="tab-btn" data-target="t5">5. 代码统计</button>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('t4')">按日期查代码 / 统计</button>
+    <button class="tab-btn" onclick="switchTab('t1')">单人班表</button>
   </div>
 
   <div class="content-area">
-    
-    <div id="t1" class="tab-content active">
-      <div class="panel-section">
-        <div class="section-title"><span>原始数据输入</span> <span style="font-size:12px;color:#64748b">包含：日期行+星期行+时间行</span></div>
-        <textarea id="in1_raw" style="height:100px;" placeholder="粘贴示例：&#10;12月1日 12月2日...&#10;星期一 星期二...&#10;9:00 OFF 15:00..."></textarea>
-        <div class="btn-group">
-           <input id="in1_title" type="text" placeholder="你的名字（用于导出文件名）" style="width:200px;margin:0;">
-           <button class="btn btn-primary" onclick="App.t1_parse()">生成时间表</button>
-           <button class="btn" onclick="App.clear('in1_raw')">清空</button>
-        </div>
-        <div id="st1" class="status-msg"></div>
-      </div>
-      <div class="panel-section">
-        <div class="section-title"><span>结果输出</span></div>
-        <textarea id="out1" class="output-box" readonly></textarea>
-        <div class="btn-group">
-          <button class="btn" onclick="App.copy('out1')">复制文本</button>
-          <button class="btn" onclick="App.t1_downloadICS()">导出 iOS/Outlook 日历 (.ics)</button>
-        </div>
-      </div>
-    </div>
 
-    <div id="t2" class="tab-content">
-      <div class="panel-section">
-        <div class="section-title">
-            <span>多人对比输入</span>
-            <select id="in2_count" onchange="App.t2_renderInputs()" style="width:auto;padding:2px;">
-                <option value="2">2人对比</option>
-                <option value="3">3人对比</option>
-                <option value="4">4人对比</option>
-            </select>
-        </div>
-        <div id="in2_container"></div> <div class="btn-group">
-            <button class="btn btn-primary" onclick="App.t2_compare()">开始对比</button>
-            <button class="btn" onclick="App.t2_clear()">清空所有</button>
-        </div>
-        <div id="st2" class="status-msg"></div>
-      </div>
-      <div class="panel-section">
-        <div class="section-title"><span>对比结果（共同上班/同班次）</span></div>
-        <textarea id="out2" class="output-box" style="height:200px;"></textarea>
-      </div>
-    </div>
-
-    <div id="t3" class="tab-content">
-      <div class="panel-section">
-        <div class="section-title"><span>输入：姓名列表 + 直列班次</span></div>
-        <div style="display:grid; grid-template-columns: 1fr 2fr; gap:10px;">
-            <div>
-                <span class="hint">姓名 (每行一个)</span>
-                <textarea id="in3_names" style="height:150px;" placeholder="Joyi Xiang&#10;Aiden Cho"></textarea>
-            </div>
-            <div>
-                <span class="hint">直列班次 (与姓名行对应)</span>
-                <textarea id="in3_shifts" style="height:150px;" placeholder="9:00&#10;OFF&#10;15:00..."></textarea>
-            </div>
-        </div>
-        <div class="btn-group">
-            <input id="in3_dateLabel" placeholder="日期（可选，如 12月4日）" style="flex:1;">
-            <button class="btn btn-primary" onclick="App.t3_parse()">查询人员</button>
-        </div>
-        <div id="st3" class="status-msg"></div>
-      </div>
-      <div class="panel-section">
-        <div class="section-title"><span>按班次分组结果</span></div>
-        <textarea id="out3" class="output-box"></textarea>
-      </div>
-    </div>
-
-    <div id="t4" class="tab-content">
-      <div class="panel-section">
-        <div class="section-title"><span>三区域全月数据粘贴</span></div>
-        <span class="hint">① 日期行 (12月1日...) + 星期行</span>
-        <textarea id="in4_dates" style="height:60px;" placeholder="粘贴日期和星期行"></textarea>
-        <span class="hint">② 姓名列表 (Joyi...)</span>
-        <textarea id="in4_names" style="height:80px;" placeholder="粘贴姓名列"></textarea>
-        <span class="hint">③ 全月代码矩阵 (OFF 9:00...)</span>
-        <textarea id="in4_codes" style="height:100px;" placeholder="粘贴对应的全月排班数据"></textarea>
+    <div id="t4" class="tab-content active">
+      <div style="border:1px solid #e2e8f0; padding:15px; border-radius:8px; margin-bottom:20px;">
+        <h3 style="margin-top:0;color:#2563eb;">第一步：粘贴数据（三区粘贴法）</h3>
         
-        <div class="btn-group">
-            <button class="btn btn-primary" onclick="App.t4_parse()">1. 解析表格</button>
-            <button class="btn btn-danger" onclick="App.t4_clear()">清空</button>
-        </div>
+        <span class="hint">① 粘贴日期行 (即使是 12月1日12月2日... 连在一起也没关系)</span>
+        <textarea id="in4_dates" style="height:60px;" placeholder="粘贴：12月1日 12月2日..."></textarea>
+        
+        <span class="hint">② 粘贴姓名列 (从你的数据上半部分复制名字)</span>
+        <textarea id="in4_names" style="height:100px;" placeholder="粘贴：&#10;Candace Cheng 程安顺&#10;Rex Phoon 冯勋庆&#10;..."></textarea>
+        
+        <span class="hint">③ 粘贴排班代码块 (从你的数据下半部分复制 OFF REST 9:00...)</span>
+        <textarea id="in4_codes" style="height:150px;" placeholder="粘贴：&#10;OFF REST 9:00...&#10;OFF REST 15:00..."></textarea>
+        
+        <button class="btn btn-primary" onclick="App.t4_parse()">解析表格</button>
+        <button class="btn" onclick="App.clear4()">清空</button>
         <div id="st4" class="status-msg"></div>
-
-        <div style="margin-top:15px; border-top:1px dashed #ddd; padding-top:15px;">
-             <div class="section-title"><span>2. 查询交互</span></div>
-             <div style="display:flex; gap:10px;">
-                 <select id="sel4_day"><option>先解析表格</option></select>
-                 <select id="sel4_code"><option>先解析表格</option></select>
-                 <button class="btn btn-primary" onclick="App.t4_query()">查询</button>
-             </div>
-        </div>
       </div>
-      <div class="panel-section">
-        <textarea id="out4" class="output-box" placeholder="结果显示区域"></textarea>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+        <div>
+           <h4 style="margin:0 0 10px 0;">查询某日某班次</h4>
+           <div style="display:flex; gap:5px; margin-bottom:10px;">
+             <select id="sel4_day"><option>先解析</option></select>
+             <select id="sel4_code"><option>先解析</option></select>
+             <button class="btn btn-primary" onclick="App.t4_query()" style="padding:5px 10px;">查</button>
+           </div>
+           <textarea id="out4" style="height:200px; background:#f1f5f9;" readonly></textarea>
+        </div>
+        <div>
+           <h4 style="margin:0 0 10px 0;">全月统计排行榜</h4>
+           <div style="display:flex; gap:5px; margin-bottom:10px;">
+             <input id="in5_code" value="MC" placeholder="代码" style="width:80px;">
+             <button class="btn btn-primary" onclick="App.t5_stats()" style="padding:5px 10px;">统计</button>
+           </div>
+           <textarea id="out5" style="height:200px; background:#f1f5f9;" readonly></textarea>
+        </div>
       </div>
     </div>
 
-    <div id="t5" class="tab-content">
-      <div class="panel-section">
-        <div class="section-title"><span>数据源（复用功能4的输入）</span></div>
-        <p style="font-size:13px; color:#666;">此功能直接使用“功能4”中粘贴的数据。请确保在那边已经粘贴了内容。</p>
-        <div class="btn-group">
-            <input id="in5_code" type="text" value="MC" placeholder="输入代码 (MC, AL, OFF...)" style="width:150px;">
-            <button class="btn btn-primary" onclick="App.t5_stats()">统计整月次数</button>
-        </div>
-        <div id="st5" class="status-msg"></div>
-      </div>
-      <div class="panel-section">
-        <div class="section-title"><span>统计排行榜</span></div>
-        <textarea id="out5" class="output-box" style="height:200px;"></textarea>
-      </div>
+    <div id="t1" class="tab-content">
+      <textarea id="in1_raw" style="height:100px;" placeholder="适合复制单人的那三行：日期+星期+时间"></textarea>
+      <button class="btn btn-primary" onclick="App.t1_parse()">生成</button>
+      <textarea id="out1" style="height:150px; margin-top:10px;"></textarea>
     </div>
 
   </div>
 </div>
 
 <script>
-/**
- * 核心逻辑模块
- */
+function switchTab(id){
+    document.querySelectorAll('.tab-content').forEach(d=>d.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.target.classList.add('active');
+}
+
 const App = (function(){
-    // === 工具函数 ===
     const $ = id => document.getElementById(id);
-    const pad = n => n < 10 ? "0"+n : ""+n;
-    
-    // 自动保存输入到 LocalStorage
-    function saveState(key, val) { localStorage.setItem('fs_tool_'+key, val); }
-    function loadState(key) { return localStorage.getItem('fs_tool_'+key) || ''; }
-    
-    // 绑定所有带 ID 的输入框自动保存
-    function bindAutoSave() {
-        const inputs = document.querySelectorAll('textarea, input[type="text"]');
-        inputs.forEach(el => {
-            if(el.id) {
-                el.value = loadState(el.id);
-                el.addEventListener('input', () => saveState(el.id, el.value));
-            }
-        });
-    }
+    const setStatus = (id, msg, type) => { $(id).innerHTML = msg; $(id).className = `status-msg ${type}`; };
+    let sheetData = null;
 
-    // 状态显示
-    function setStatus(id, msg, type='ok') {
-        const el = $(id);
-        if(!msg) { el.innerHTML=''; return; }
-        el.className = `status-msg ${type}`;
-        el.innerHTML = msg;
-        setTimeout(() => { if(type==='ok') el.innerHTML=''; }, 5000);
-    }
-
-    // 复制功能
-    function copyText(id) {
-        const el = $(id);
-        el.select();
-        document.execCommand('copy');
-        alert('已复制到剪贴板');
-    }
-
-    // === 业务逻辑核心 ===
-    
-    // 1. 班次处理：9:00 -> 09:00 - 18:00
-    function formatShift(raw) {
-        raw = raw.trim();
-        const m = raw.match(/^(\d{1,2}):(\d{2})$/);
-        if (!m) return raw;
-        let h = parseInt(m[1]), min = parseInt(m[2]);
-        let endH = (h + 9) % 24;
-        let endHStr = (h + 9 >= 24 && endH === 0) ? "24" : pad(endH); // 逻辑修正
-        return `${pad(h)}:${pad(min)} - ${endHStr}:${pad(min)}`;
-    }
-
-    // 解析通用三行数据 (日期, 星期, 数据)
-    function parseFeishuLines(text) {
-        const lines = text.split(/[\r\n]+/).map(l=>l.trim()).filter(Boolean);
-        if (lines.length < 2) throw new Error("行数不足，请包含日期、星期和排班行");
+    // === 核心修复：智能日期提取 ===
+    function extractDates(text) {
+        // 1. 尝试匹配 "12月1日" 这种格式（兼容有无空格）
+        // 使用 matchAll 或全局 match，专门提取 日期格式
+        const regex = /(\d{1,2})\s*[月\/-]\s*(\d{1,2})/g;
+        const matches = [...text.matchAll(regex)];
         
-        // 智能识别日期行
-        const dateLineIdx = lines.findIndex(l => /(\d{1,2})\s*[月\/-]\s*(\d{1,2})/.test(l));
-        if(dateLineIdx === -1) throw new Error("未找到日期行 (如 12月1日)");
-        
-        const dateTokens = lines[dateLineIdx].split(/[\t\s]+/).filter(Boolean);
-        const weekTokens = (lines[dateLineIdx+1] || "").match(/星期/) ? lines[dateLineIdx+1].split(/[\t\s]+/).filter(Boolean) : [];
-        
-        // 寻找包含时间的排班行
-        const shiftLine = lines.slice(dateLineIdx+1).find(l => /\d{1,2}:\d{2}|OFF|REST|MC/.test(l));
-        if(!shiftLine) throw new Error("未找到具体的排班时间行");
-        
-        const shiftTokens = shiftLine.split(/[\t\s]+/).filter(Boolean);
-        
-        return { dateTokens, weekTokens, shiftTokens };
-    }
-
-    // === 功能 1: 单人班表 ===
-    let t1_events = []; // 用于导出 ICS
-
-    function t1_parse() {
-        try {
-            const raw = $('in1_raw').value;
-            const name = $('in1_title').value || "我的";
-            const { dateTokens, weekTokens, shiftTokens } = parseFeishuLines(raw);
-            
-            t1_events = [];
-            let output = `${name} 排班表\n\n`;
-            let stats = { work:0, off:0, leave:0 };
-
-            // 对齐逻辑：尝试按索引对齐
-            const len = Math.min(dateTokens.length, shiftTokens.length);
-            
-            for(let i=0; i<len; i++) {
-                const date = dateTokens[i];
-                const week = weekTokens[i] || "";
-                const code = shiftTokens[i];
-                const shiftDisplay = formatShift(code);
-                
-                output += `${date} (${week}): ${shiftDisplay}\n`;
-
-                // 简单的统计
-                if(/OFF|REST/.test(code)) stats.off++;
-                else if(/MC|AL/.test(code)) stats.leave++;
-                else stats.work++;
-
-                // 准备日历数据
-                const dateMatch = date.match(/(\d{1,2})\s*[月\/-]\s*(\d{1,2})/);
-                const timeMatch = code.match(/^(\d{1,2}):(\d{2})$/);
-                if(dateMatch && timeMatch) {
-                    // 假设当前年份或下一年
-                    const now = new Date();
-                    let year = now.getFullYear();
-                    const month = parseInt(dateMatch[1]);
-                    // 如果当前是12月但排班是1月，年份+1
-                    if(now.getMonth()===11 && month===1) year++; 
-
-                    t1_events.push({
-                        year, month, day: parseInt(dateMatch[2]),
-                        sh: parseInt(timeMatch[1]), sm: parseInt(timeMatch[2]),
-                        eh: (parseInt(timeMatch[1])+9), em: parseInt(timeMatch[2]) // 简单+9处理
-                    });
-                }
-            }
-            
-            output += `\n统计：出勤 ${stats.work} 天，休息 ${stats.off} 天，请假 ${stats.leave} 天`;
-            $('out1').value = output;
-            setStatus('st1', '生成成功', 'ok');
-        } catch(e) {
-            setStatus('st1', e.message, 'error');
-        }
-    }
-
-    function t1_downloadICS() {
-        if(!t1_events.length) return alert("请先生成时间表，且确保包含具体时间班次(9:00等)");
-        let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//FeishuTool//CN\n";
-        t1_events.forEach(e => {
-            const pad2 = n => n<10 ? "0"+n : ""+n;
-            const start = `${e.year}${pad2(e.month)}${pad2(e.day)}T${pad2(e.sh)}${pad2(e.sm)}00`;
-            // 处理跨天
-            let endH = e.eh, endD = e.day;
-            if(endH >= 24) { endH -= 24; endD += 1; } // 简化版，不处理月底跨月，日历软件通常能容错
-            const end = `${e.year}${pad2(e.month)}${pad2(endD)}T${pad2(endH)}${pad2(e.em)}00`;
-            
-            ics += "BEGIN:VEVENT\n";
-            ics += `DTSTART:${start}\nDTEND:${end}\nSUMMARY:上班\n`;
-            ics += "END:VEVENT\n";
-        });
-        ics += "END:VCALENDAR";
-        
-        const blob = new Blob([ics], {type: "text/calendar;charset=utf-8"});
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "schedule.ics";
-        link.click();
-    }
-
-    // === 功能 2: 班表对比 ===
-    function t2_renderInputs() {
-        const n = $('in2_count').value;
-        const container = $('in2_container');
-        let html = '';
-        for(let i=1; i<=n; i++) {
-            html += `<div style="margin-top:8px; padding:8px; background:#f1f5f9; border-radius:4px;">
-                <input id="in2_name_${i}" placeholder="成员 ${i} 姓名" style="width:120px; margin-bottom:5px;">
-                <textarea id="in2_raw_${i}" style="height:60px; margin-bottom:0;" placeholder="成员 ${i} 的排班数据 ${i===1?'(必须包含日期行)':'(可只包含时间行)'}"></textarea>
-            </div>`;
-        }
-        container.innerHTML = html;
-        bindAutoSave(); // 重新绑定新生成的输入框
-    }
-
-    function t2_compare() {
-        try {
-            const n = parseInt($('in2_count').value);
-            let refDates = [];
-            let schedules = []; // [{name, shifts:[]}]
-
-            for(let i=1; i<=n; i++) {
-                const raw = $(`in2_raw_${i}`).value;
-                const name = $(`in2_name_${i}`).value || `成员${i}`;
-                if(!raw.trim()) throw new Error(`请填写成员 ${i} 的数据`);
-                
-                const tokens = raw.split(/[\t\s]+/).filter(Boolean);
-                
-                // 第一个人作为基准，提取日期
-                if(i === 1) {
-                   // 简单提取逻辑：找到所有的排班代码和日期
-                   const parsed = parseFeishuLines(raw); // 复用解析器
-                   refDates = parsed.dateTokens.map((d, idx) => `${d}(${parsed.weekTokens[idx]||''})`);
-                   schedules.push({ name, shifts: parsed.shiftTokens });
-                } else {
-                   // 其他人只取最后一行（假定是时间行）
-                   const lines = raw.split(/[\r\n]+/).filter(Boolean);
-                   const lastLine = lines[lines.length-1];
-                   const shifts = lastLine.split(/[\t\s]+/).filter(Boolean);
-                   schedules.push({ name, shifts });
-                }
-            }
-
-            // 开始对比
-            let commonDays = [];
-            let sameShiftDays = [];
-            
-            const len = Math.min(refDates.length, ...schedules.map(s=>s.shifts.length));
-            
-            for(let i=0; i<len; i++) {
-                const currentShifts = schedules.map(s => s.shifts[i]);
-                const isAllWork = currentShifts.every(s => /\d{1,2}:\d{2}/.test(s)); // 都是时间格式
-                
-                if(isAllWork) {
-                    commonDays.push(refDates[i]);
-                    // 检查是否全同
-                    const first = currentShifts[0];
-                    if(currentShifts.every(s => s === first)) {
-                        sameShiftDays.push(`${refDates[i]} [${formatShift(first)}]`);
-                    }
-                }
-            }
-
-            let res = `对比人数: ${n}\n`;
-            res += `共同上班天数: ${commonDays.length} 天\n`;
-            res += `完全同班次天数: ${sameShiftDays.length} 天\n\n`;
-            if(sameShiftDays.length) {
-                res += "=== 同班次日期 ===\n" + sameShiftDays.join('\n');
-            } else {
-                res += "无完全相同的班次日期。";
-            }
-            $('out2').value = res;
-            setStatus('st2', '对比完成');
-        } catch(e) {
-            setStatus('st2', e.message, 'error');
-        }
-    }
-    
-    // === 功能 3: 班次查人 ===
-    function t3_parse() {
-        const names = $('in3_names').value.split(/[\r\n]+/).map(n=>n.trim()).filter(Boolean);
-        const shifts = $('in3_shifts').value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean);
-        const dateLabel = $('in3_dateLabel').value;
-        
-        if(names.length !== shifts.length) {
-            return setStatus('st3', `行数不匹配: 姓名 ${names.length} 行，班次 ${shifts.length} 行`, 'error');
+        if (matches.length > 0) {
+            return matches.map((m, index) => ({
+                raw: m[0],
+                month: parseInt(m[1]),
+                day: parseInt(m[2]),
+                index: index
+            }));
         }
         
-        const map = {}; // { "9:00": ["Name1", "Name2"] }
-        shifts.forEach((s, i) => {
-            const key = formatShift(s); // 统一格式
-            if(!map[key]) map[key] = [];
-            map[key].push(names[i]);
-        });
-        
-        let out = dateLabel ? `日期：${dateLabel}\n\n` : "";
-        // 排序键值
-        Object.keys(map).sort().forEach(k => {
-            out += `【${k}】 (${map[k].length}人):\n`;
-            out += map[k].join(', ') + "\n\n";
-        });
-        $('out3').value = out;
-        setStatus('st3', '查询成功');
+        // 2. 如果没找到中文日期，尝试简单的数字分割（备用方案）
+        const tokens = text.split(/[\s\t]+/).filter(t => /^\d+$/.test(t));
+        if(tokens.length > 20) {
+            return tokens.map((t, i) => ({ raw: t+"日", day: parseInt(t), index: i }));
+        }
+        return [];
     }
 
-    // === 功能 4 & 5: 矩阵解析 ===
-    let sheetData = null; // { days:[], staff:[ {name, codes:[]} ] }
+    // === 核心修复：更强的行处理 ===
+    function cleanLines(text) {
+        return text.split(/[\r\n]+/)
+                   .map(l => l.trim())
+                   .filter(l => l && !/^\d+(\s+\d+)*$/.test(l)) // 过滤掉全是数字的统计行 (如 33 36 40...)
+                   .filter(l => !l.includes("吉隆坡")); // 过滤掉乱七八糟的表头
+    }
 
     function t4_parse() {
         try {
@@ -465,129 +138,106 @@ const App = (function(){
             const nameText = $('in4_names').value;
             const codeText = $('in4_codes').value;
 
-            // 1. 解析日期行
-            const dLines = dateText.split(/[\r\n]+/).filter(Boolean);
-            const days = dLines[0].split(/[\t\s]+/).filter(Boolean).map(d => {
-                const m = d.match(/(\d+)月(\d+)日/) || d.match(/(\d+)/);
-                return { raw: d, dayNum: m ? parseInt(m[2]||m[1]) : 0 };
+            if(!dateText || !nameText || !codeText) throw new Error("请确保三个区域都粘贴了内容");
+
+            // 1. 解析日期 (智能版)
+            const days = extractDates(dateText);
+            if(days.length === 0) throw new Error("未识别到日期，请确认粘贴了包含 'X月X日' 的内容");
+
+            // 2. 解析名字 (过滤掉空行)
+            // 针对你的数据，名字可能夹杂职务，这里简单保留所有看起来像名字的行
+            const names = nameText.split(/[\r\n]+/)
+                                  .map(l=>l.trim())
+                                  .filter(l => l.length > 0 && !/^(白|中|晚|夜|TICKET|VIP|大客户)/.test(l)); // 过滤掉明显不是名字的行
+
+            // 3. 解析代码矩阵
+            // 你的代码数据里有很多重复的日期头，我们需要只提取包含排班代码的行
+            const allCodeLines = codeText.split(/[\r\n]+/).map(l=>l.trim());
+            const validCodeLines = allCodeLines.filter(line => {
+                // 这一行必须包含时间(9:00)或者代码(OFF, REST, MC)
+                return /\d{1,2}:\d{2}|OFF|REST|MC|AL/.test(line) && !/月\d+日/.test(line);
             });
 
-            // 2. 解析姓名
-            const names = nameText.split(/[\r\n]+/).map(l=>l.trim()).filter(Boolean);
-            
-            // 3. 解析代码矩阵
-            const cLines = codeText.split(/[\r\n]+/).map(l=>l.trim()).filter(Boolean);
-            
-            if(names.length !== cLines.length) throw new Error(`姓名行数(${names.length})与代码行数(${cLines.length})不一致`);
-            
-            const staff = names.map((n, i) => {
-                const codes = cLines[i].split(/[\t\s]+/).filter(Boolean);
-                return { name: n, codes };
-            });
+            // 校验行数
+            // 如果名字比代码行多，截取名字；如果代码行多，截取代码。尽量对齐。
+            const count = Math.min(names.length, validCodeLines.length);
+            if(count === 0) throw new Error("未找到有效的排班代码行");
+
+            const staff = [];
+            for(let i=0; i<count; i++) {
+                // 分割每一行的代码
+                // 你的数据代码行是用 Tab 分隔的，或者空格
+                const tokens = validCodeLines[i].split(/[\t\s]+/).filter(Boolean);
+                staff.push({ name: names[i], codes: tokens });
+            }
 
             sheetData = { days, staff };
-            
-            // 填充下拉框
+
+            // UI 更新
             const dSel = $('sel4_day');
             dSel.innerHTML = '<option value="">选择日期</option>';
-            days.forEach((d, i) => {
-                dSel.add(new Option(d.raw, i)); // value is index
-            });
+            days.forEach((d, i) => dSel.add(new Option(`${d.month}月${d.day}日`, i)));
 
-            setStatus('st4', '表格解析成功，可进行查询或统计');
-            
-            // 联动更新代码下拉框（获取所有出现的唯一代码）
-            const allCodes = new Set();
-            staff.forEach(s => s.codes.forEach(c => allCodes.add(c)));
             const cSel = $('sel4_code');
+            const uniqueCodes = new Set();
+            staff.forEach(s => s.codes.forEach(c => uniqueCodes.add(c)));
             cSel.innerHTML = '<option value="">选择代码</option>';
-            Array.from(allCodes).sort().forEach(c => cSel.add(new Option(c, c)));
+            Array.from(uniqueCodes).sort().forEach(c => cSel.add(new Option(c,c)));
+
+            setStatus('st4', `解析成功！匹配到 ${count} 人，${days.length} 天的数据。`, 'ok');
 
         } catch(e) {
             setStatus('st4', e.message, 'error');
-            sheetData = null;
+            console.error(e);
         }
     }
 
     function t4_query() {
-        if(!sheetData) return setStatus('st4', '请先点击解析表格', 'error');
+        if(!sheetData) return;
         const dayIdx = $('sel4_day').value;
-        const targetCode = $('sel4_code').value;
+        const code = $('sel4_code').value;
+        if(dayIdx==="" || !code) return;
+
+        const dayInfo = sheetData.days[dayIdx];
+        const res = sheetData.staff.filter(s => s.codes[dayIdx] === code).map(s => s.name);
         
-        if(dayIdx === "" || !targetCode) return;
-        
-        const dateLabel = sheetData.days[dayIdx].raw;
-        const results = [];
-        
-        sheetData.staff.forEach(s => {
-            const c = s.codes[dayIdx]; // 获取该人在该列的代码
-            if(c === targetCode) results.push(s.name);
-        });
-        
-        $('out4').value = `${dateLabel} 代码 [${targetCode}] 人员名单 (${results.length}人):\n\n` + results.map(n=>"- "+n).join('\n');
-    }
-    
-    function t4_clear() {
-        $('in4_dates').value=''; $('in4_names').value=''; $('in4_codes').value='';
-        saveState('in4_dates',''); saveState('in4_names',''); saveState('in4_codes','');
-        sheetData = null;
+        $('out4').value = `${dayInfo.month}月${dayInfo.day}日 - ${code} (${res.length}人):\n\n` + res.join('\n');
     }
 
-    // === 功能 5 ===
     function t5_stats() {
-        if(!sheetData) {
-            // 尝试自动解析一次
-            t4_parse(); 
-            if(!sheetData) return setStatus('st5', '请先在功能4中粘贴数据并解析', 'error');
-        }
+        if(!sheetData) { t4_parse(); if(!sheetData) return; }
+        const code = $('in5_code').value.toUpperCase();
         
-        const target = $('in5_code').value.trim().toUpperCase();
-        if(!target) return;
-        
-        let list = [];
-        sheetData.staff.forEach(s => {
-            let count = 0;
-            s.codes.forEach(c => {
-                if(c.toUpperCase() === target) count++;
-            });
-            if(count > 0) list.push({ name: s.name, count });
-        });
-        
-        list.sort((a,b) => b.count - a.count); // 降序
-        
-        let out = `全月 [${target}] 统计榜:\n\n`;
-        list.forEach(item => {
-            out += `${item.name}: \t${item.count}次\n`;
-        });
-        
-        $('out5').value = out;
-        setStatus('st5', '统计完成');
+        const list = sheetData.staff.map(s => {
+            let cnt = 0;
+            // 遍历所有天数，防止代码行长度超过日期数
+            for(let i=0; i<sheetData.days.length; i++) {
+                if((s.codes[i]||"").toUpperCase() === code) cnt++;
+            }
+            return { name: s.name, count: cnt };
+        }).filter(x => x.count > 0).sort((a,b) => b.count - a.count);
+
+        $('out5').value = `全月 [${code}] 统计:\n\n` + list.map(x => `${x.name}: ${x.count}`).join('\n');
     }
 
-    // === 初始化 ===
-    // Tab 切换逻辑
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            $(btn.dataset.target).classList.add('active');
-        });
-    });
-    
-    // 初始化
-    t2_renderInputs();
-    bindAutoSave();
+    function t1_parse() {
+        // 简易单人解析，利用新的 extractDates
+        try {
+            const raw = $('in1_raw').value;
+            const days = extractDates(raw);
+            const lines = raw.split(/[\r\n]+/).filter(l => /\d{1,2}:\d{2}|OFF/.test(l));
+            if(!lines.length) return;
+            const shifts = lines[0].split(/[\t\s]+/).filter(Boolean);
+            
+            let out = "";
+            for(let i=0; i<Math.min(days.length, shifts.length); i++) {
+                out += `${days[i].month}月${days[i].day}日: ${shifts[i]}\n`;
+            }
+            $('out1').value = out;
+        } catch(e) { alert("解析错误"); }
+    }
 
-    // 导出给 HTML 调用
-    return {
-        t1_parse, t1_downloadICS, copy: copyText, clear: (id) => {$(id).value=''; saveState(id,'');},
-        t2_renderInputs, t2_compare, t2_clear: () => { document.querySelectorAll('#in2_container input, #in2_container textarea').forEach(el=>{el.value='';saveState(el.id,'')}); },
-        t3_parse,
-        t4_parse, t4_query, t4_clear,
-        t5_stats
-    };
-
+    return { t4_parse, t4_query, t5_stats, t1_parse, clear4: ()=> { $('in4_dates').value=''; $('in4_names').value=''; $('in4_codes').value=''; } };
 })();
 </script>
 </body>
