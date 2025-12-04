@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>飞书排班可视化看板 · V4.0 (含比较功能)</title>
+  <title>飞书排班可视化看板 · V5.0 (修复与统计增强)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     :root { --primary: #2563eb; --bg: #f1f5f9; --text: #1e293b; --border: #cbd5e1; }
@@ -28,11 +28,13 @@
     /* 输入/输出通用样式 */
     textarea { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; font-size: 12px; font-family: monospace; resize: vertical; min-height: 80px; margin-bottom: 10px; }
     textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+    input[type="text"] { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; margin-bottom: 10px; }
     
     .btn-group { display: flex; gap: 10px; margin-top: 10px; }
     .btn { background: white; border: 1px solid #cbd5e1; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: #334155; transition: 0.2s; }
     .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
     .btn-primary:hover { background: #1d4ed8; }
+    .btn-clear { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
     
     .status-msg { margin-top: 5px; font-size: 13px; font-weight: bold; padding: 10px; border-radius: 6px; }
     .status-msg.ok { color: #16a34a; background: #dcfce7; border: 1px solid #bbf7d0; }
@@ -65,16 +67,21 @@
     .stats-col { font-weight: bold; background: #fffbeb; color: #92400e; }
 
     /* T2 班表比较样式 */
-    .t2-input-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px; }
+    .t2-input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 10px; }
     .t2-person { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; }
     .t2-person input { width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 5px; box-sizing: border-box; }
     .t2-person textarea { min-height: 100px; }
 
-    /* T2 输出区 */
-    .t2-output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .t2-result-box { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background: #f8fafc; }
-    .t2-result-box h4 { margin-top: 0; color: #0f766e; }
-    .t2-result-box textarea { min-height: 250px; background: white; }
+    /* T2/T3 输出区 */
+    .output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .result-box { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background: #f8fafc; }
+    .result-box h4 { margin-top: 0; color: #0f766e; }
+    .result-box textarea { min-height: 250px; background: white; }
+    
+    /* T3 搜索区 */
+    .t3-search-group { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+    .t3-search-group input[type="text"] { flex-grow: 1; max-width: 200px; margin-bottom: 0; }
+    .t3-search-group button { margin-top: 0; }
 
   </style>
 </head>
@@ -82,13 +89,14 @@
 
 <div class="app-container">
   <div class="header">
-    <h1>飞书排班可视化看板 <span class="badge">V4.0</span></h1>
+    <h1>飞书排班可视化看板 <span class="badge">V5.0</span></h1>
   </div>
   
   <div class="tabs">
     <button class="tab-btn" onclick="AppUI.switchTab('t4')">可视化排班表</button>
     <button class="tab-btn active" onclick="AppUI.switchTab('t1')">单人班表生成</button>
     <button class="tab-btn" onclick="AppUI.switchTab('t2')">多人班表比较</button>
+    <button class="tab-btn" onclick="AppUI.switchTab('t3')">班次统计搜索</button>
   </div>
 
   <div class="content-area">
@@ -108,40 +116,71 @@
     </div>
 
     <div id="t2" class="tab-content" style="padding: 0;">
-        <h3>输入需要比较的单人排班数据 (日期+星期+班次)</h3>
+        <h3>1. 粘贴日期行 (只需一次)</h3>
+        <textarea id="in2_dates" placeholder="粘贴：12月1日 12月2日... (只需一次)"></textarea>
+        
+        <h3>2. 粘贴班次行 (最多4人)</h3>
         <div class="t2-input-group">
             <div class="t2-person">
                 <input id="in2_name1" placeholder="姓名 1 (必填)" value="员工 A">
-                <textarea id="in2_raw1" placeholder="粘贴员工 A 的三行数据"></textarea>
+                <textarea id="in2_raw1" placeholder="粘贴员工 A 的班次行"></textarea>
             </div>
             <div class="t2-person">
                 <input id="in2_name2" placeholder="姓名 2 (必填)" value="员工 B">
-                <textarea id="in2_raw2" placeholder="粘贴员工 B 的三行数据"></textarea>
+                <textarea id="in2_raw2" placeholder="粘贴员工 B 的班次行"></textarea>
             </div>
             <div class="t2-person">
                 <input id="in2_name3" placeholder="姓名 3 (可选)">
-                <textarea id="in2_raw3" placeholder="粘贴员工 C 的三行数据 (可选)"></textarea>
+                <textarea id="in2_raw3" placeholder="粘贴员工 C 的班次行 (可选)"></textarea>
             </div>
             <div class="t2-person">
                 <input id="in2_name4" placeholder="姓名 4 (可选)">
-                <textarea id="in2_raw4" placeholder="粘贴员工 D 的三行数据 (可选)"></textarea>
+                <textarea id="in2_raw4" placeholder="粘贴员工 D 的班次行 (可选)"></textarea>
             </div>
         </div>
         <div class="btn-group">
             <button class="btn btn-primary" onclick="App.t2_compare()">🔍 比较共同上班时间</button>
-            <button class="btn" onclick="AppUI.clear2()">清空</button>
+            <button class="btn btn-clear" onclick="AppUI.clear2()">清空</button>
         </div>
         <div id="st2" class="status-msg"></div>
 
         <h3 style="margin-top: 20px;">比较结果</h3>
-        <div class="t2-output-grid">
-            <div class="t2-result-box">
+        <div class="output-grid">
+            <div class="result-box">
                 <h4>🎉 共同上班日期列表</h4>
                 <textarea id="out2_list" readonly placeholder="共同上班的日期和班次将在此显示"></textarea>
             </div>
-            <div class="t2-result-box">
+            <div class="result-box">
                 <h4>📊 总结</h4>
                 <textarea id="out2_summary" readonly placeholder="总计共同上班天数"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div id="t3" class="tab-content" style="padding: 0;">
+        <h3>1. 粘贴全部人员名单 (姓名列)</h3>
+        <textarea id="in3_names" placeholder="粘贴姓名列（每行一个）"></textarea>
+        
+        <h3>2. 粘贴全部班次矩阵 (代码行)</h3>
+        <textarea id="in3_codes" style="min-height:150px;" placeholder="粘贴全部人员的班次代码行"></textarea>
+        
+        <h3>3. 搜索特定班次代码</h3>
+        <div class="t3-search-group">
+            <input type="text" id="in3_search" placeholder="例如: MC, 9:00, AL" value="MC">
+            <button class="btn btn-primary" onclick="App.t3_search()">🔍 开始搜索统计</button>
+            <button class="btn btn-clear" onclick="AppUI.clear3()">清空</button>
+        </div>
+        <div id="st3" class="status-msg"></div>
+
+        <h3 style="margin-top: 20px;">统计结果</h3>
+        <div class="output-grid">
+            <div class="result-box">
+                <h4>👤 涉及人员名单及次数</h4>
+                <textarea id="out3_list" readonly placeholder="将显示匹配人员和他们出现的次数"></textarea>
+            </div>
+            <div class="result-box">
+                <h4>📊 总结</h4>
+                <textarea id="out3_summary" readonly placeholder="总计次数、总计人数"></textarea>
             </div>
         </div>
     </div>
@@ -197,12 +236,15 @@ const AppUI = (function(){
         // 确保切换 Tab 时状态栏清空
         hideStatus('st1');
         hideStatus('st2');
+        hideStatus('st3');
         hideStatus('status_msg_t4');
+        App.loadSavedData(); // 切换到 T4 时加载数据
     }
 
     // 清空函数
     function clear1() { $('in1_raw').value = ''; $('out1').value = ''; hideStatus('st1'); }
     function clear2() { 
+        $('in2_dates').value = '';
         for(let i=1; i<=4; i++) {
             $(`in2_name${i}`).value = i === 1 ? "员工 A" : i === 2 ? "员工 B" : "";
             $(`in2_raw${i}`).value = "";
@@ -210,6 +252,14 @@ const AppUI = (function(){
         $('out2_list').value = '';
         $('out2_summary').value = '';
         hideStatus('st2');
+    }
+    function clear3() {
+        $('in3_names').value = '';
+        $('in3_codes').value = '';
+        $('in3_search').value = 'MC';
+        $('out3_list').value = '';
+        $('out3_summary').value = '';
+        hideStatus('st3');
     }
     function clear4() { 
         $('in_dates').value = ''; $('in_names').value = ''; $('in_codes').value = '';
@@ -231,7 +281,7 @@ const AppUI = (function(){
         setTimeout(() => el.classList.remove('show'), 5000);
     }
 
-    return { switchTab, setStatus, hideStatus, clear1, clear2, clear4, msgT4 };
+    return { switchTab, setStatus, hideStatus, clear1, clear2, clear3, clear4, msgT4 };
 })();
 
 // 核心功能逻辑
@@ -240,7 +290,6 @@ const App = (function(){
     
     // --- 通用解析函数 ---
     function extractDates(text) {
-        // 1. 尝试匹配 "12月1日" 这种格式（兼容有无空格）
         const dateRegex = /(\d{1,2})\s*[月\/-]\s*(\d{1,2})/g;
         const matches = [...text.matchAll(dateRegex)];
         
@@ -257,21 +306,33 @@ const App = (function(){
     function extractCodes(text) {
         const lines = text.split(/[\r\n]+/)
             .map(l => l.trim())
-            .filter(l => /\d{1,2}:\d{2}|OFF|REST|MC|AL|PH/.test(l)); // 包含排班代码的行
+            .filter(l => /\d{1,2}:\d{2}|OFF|REST|MC|AL|PH/.test(l)); 
         
-        // 我们只取最后一行（通常是排班时间）
         if (lines.length === 0) return [];
 
-        // 进一步过滤掉可能是日期行或星期行
         let codeLine = lines.find(l => !/月\d+日|星期/.test(l));
 
-        if (!codeLine) {
-            // 如果过滤后为空，回退到最后一行，期望它是班次
+        if (!codeLine && lines.length > 0) {
             codeLine = lines[lines.length - 1];
+        } else if (!codeLine) {
+            return [];
         }
 
         return codeLine.split(/[\t\s]+/).filter(Boolean);
     }
+
+    // --- 数据持久化 (T4 修复 Bug 2) ---
+    function saveT4() {
+        localStorage.setItem('fs_dates', $('in_dates').value);
+        localStorage.setItem('fs_names', $('in_names').value);
+        localStorage.setItem('fs_codes', $('in_codes').value);
+    }
+    function loadSavedData() {
+        $('in_dates').value = localStorage.getItem('fs_dates') || '';
+        $('in_names').value = localStorage.getItem('fs_names') || '';
+        $('in_codes').value = localStorage.getItem('fs_codes') || '';
+    }
+    window.onload = loadSavedData;
 
     // --- Tab 1: 单人班表生成 ---
     function t1_parse() {
@@ -286,11 +347,7 @@ const App = (function(){
 
             if(days.length === 0) throw new Error("解析失败：未识别到日期 (如 12月1日)。");
             if(shifts.length === 0) throw new Error("解析失败：未识别到班次代码 (如 9:00, OFF)。");
-            if (days.length !== shifts.length) {
-                 AppUI.setStatus('st1', `警告：日期数 (${days.length}) 与班次数 (${shifts.length}) 不匹配，已按最少数量匹配。`, 'error');
-            }
-
-
+            
             let out = "";
             let count = Math.min(days.length, shifts.length);
             for(let i=0; i<count; i++) {
@@ -298,7 +355,12 @@ const App = (function(){
             }
 
             $('out1').value = out;
-            AppUI.setStatus('st1', `解析成功！共匹配 ${count} 天数据。`, 'ok');
+            if (days.length !== shifts.length) {
+                 AppUI.setStatus('st1', `解析成功！但日期数 (${days.length}) 与班次数 (${shifts.length}) 不匹配，已按最少数量匹配 ${count} 天。`, 'error');
+            } else {
+                AppUI.setStatus('st1', `解析成功！共匹配 ${count} 天数据。`, 'ok');
+            }
+            
 
         } catch(e) {
             $('out1').value = "";
@@ -307,80 +369,76 @@ const App = (function(){
         }
     }
 
-    // --- Tab 2: 多人班表比较 ---
+    // --- Tab 2: 多人班表比较 (修复 Bug 1) ---
     function t2_compare() {
         AppUI.hideStatus('st2');
         $('out2_list').value = '';
         $('out2_summary').value = '';
 
         try {
+            const dateText = $('in2_dates').value.trim();
+            if (!dateText) throw new Error("请先在顶部粘贴日期行。");
+            const days = extractDates(dateText);
+            if(days.length === 0) throw new Error("日期行解析失败。请确保格式正确 (如 12月1日)。");
+            
             const people = [];
             for (let i = 1; i <= 4; i++) {
                 const name = $(`in2_name${i}`).value.trim();
                 const raw = $(`in2_raw${i}`).value.trim();
                 if (raw) {
+                    if(!name) throw new Error(`员工 ${i} 的姓名不能为空。`);
                     people.push({ name, raw });
                 }
             }
 
-            if (people.length < 2) throw new Error("请至少输入两位员工的班表数据进行比较。");
+            if (people.length < 2) throw new Error("请至少输入两位员工的班次数据进行比较。");
 
-            // 1. 解析所有人的班表为 Map (日期 => 班次)
+            // 1. 解析所有人的班表为 Map (日期索引 => 班次)
             const schedules = [];
-            let allDays = new Set();
-            let minDays = Infinity;
+            const dayKeys = days.map(d => d.full);
 
             for (const p of people) {
-                const days = extractDates(p.raw);
                 const codes = extractCodes(p.raw);
                 
-                if (days.length === 0 || codes.length === 0) {
-                    throw new Error(`解析 ${p.name || '某员工'} 的班表失败：未识别到日期或班次。`);
+                if (codes.length < dayKeys.length) {
+                    throw new Error(`解析 ${p.name} 的班表失败：班次数量 (${codes.length}) 少于日期数量 (${dayKeys.length})。`);
                 }
 
-                minDays = Math.min(minDays, days.length);
-
                 const scheduleMap = new Map();
-                for(let i=0; i < Math.min(days.length, codes.length); i++) {
-                    const dateKey = days[i].full;
-                    scheduleMap.set(dateKey, codes[i].toUpperCase());
-                    allDays.add(dateKey);
+                for(let i=0; i < dayKeys.length; i++) {
+                    // 仅使用前 n 个班次，与日期对齐
+                    scheduleMap.set(dayKeys[i], codes[i].toUpperCase());
                 }
                 schedules.push({ name: p.name, schedule: scheduleMap });
             }
             
             // 2. 比较共同上班时间
-            const sortedDays = Array.from(allDays).sort();
             let commonWorkingDays = [];
 
-            for (const date of sortedDays) {
+            for (const dateKey of dayKeys) {
                 let isWorking = true;
-                let commonShift = null;
+                let shifts = [];
 
                 for (const p of schedules) {
-                    const shift = p.schedule.get(date);
-                    // 检查是否休息或请假
-                    if (!shift || /OFF|REST|MC|AL|PH|UPL/.test(shift)) {
+                    const shift = p.schedule.get(dateKey);
+                    // 检查是否休息或请假 (宽松检查，只要不是休息就算上班)
+                    if (!shift || /OFF|REST|MC|AL|PH|UPL|LATE/.test(shift)) {
                         isWorking = false;
                         break;
                     }
-
-                    // 检查班次是否相同 (可选，但通常共同上班要求班次相同，这里宽松处理：只要不是休息/请假，就算工作)
-                    // 如果要求班次必须相同，可以解开以下注释并调整逻辑
-                    // if (!commonShift) commonShift = shift;
-                    // else if (commonShift !== shift) isWorking = false; break;
+                    shifts.push(shift);
                 }
 
                 if (isWorking) {
-                    // 获取第一个人的班次作为共同班次显示
-                    const displayShift = schedules[0].schedule.get(date); 
-                    commonWorkingDays.push({ date, shift: displayShift });
+                    // 显示所有人的班次
+                    const shiftsString = shifts.join('/'); 
+                    commonWorkingDays.push({ date: dateKey, shifts: shiftsString });
                 }
             }
 
             // 3. 输出结果
-            const listOutput = commonWorkingDays.map(d => `${d.date}: ${d.shift}`).join('\n');
-            const summaryOutput = `参与比较人数：${schedules.length}人\n可比较天数：${minDays}天\n\n🎉 共同上班总天数：\n${commonWorkingDays.length} 天`;
+            const listOutput = commonWorkingDays.map(d => `${d.date}: ${d.shifts}`).join('\n');
+            const summaryOutput = `参与比较人数：${schedules.length}人\n比较范围天数：${dayKeys.length}天\n\n🎉 共同上班总天数：\n${commonWorkingDays.length} 天`;
             
             $('out2_list').value = listOutput || "本月无共同上班日期。";
             $('out2_summary').value = summaryOutput;
@@ -395,22 +453,74 @@ const App = (function(){
         }
     }
 
-    // --- Tab 4: 可视化排班表 ---
-    function t4_render() {
-        // ... (V3.0 可视化代码逻辑保持不变，确保命名和 UI 辅助函数一致) ...
-        // 保存/加载数据
-        function save() {
-            localStorage.setItem('fs_dates', $('in_dates').value);
-            localStorage.setItem('fs_names', $('in_names').value);
-            localStorage.setItem('fs_codes', $('in_codes').value);
-        }
-        function load() {
-            $('in_dates').value = localStorage.getItem('fs_dates') || '';
-            $('in_names').value = localStorage.getItem('fs_names') || '';
-            $('in_codes').value = localStorage.getItem('fs_codes') || '';
-        }
-        load(); // 在渲染前加载一次
+    // --- Tab 3: 班次统计搜索 (新增功能) ---
+    function t3_search() {
+        AppUI.hideStatus('st3');
+        $('out3_list').value = '';
+        $('out3_summary').value = '';
 
+        try {
+            const namesText = $('in3_names').value.trim();
+            const codesText = $('in3_codes').value.trim();
+            const searchCode = $('in3_search').value.trim().toUpperCase();
+
+            if (!namesText || !codesText) throw new Error("请粘贴人员名单和班次矩阵。");
+            if (!searchCode) throw new Error("请输入要搜索的班次代码 (如 MC)。");
+
+            const names = namesText.split(/[\r\n]+/)
+                .map(l => l.trim())
+                .filter(l => l && !/^(白|中|晚|夜|TICKET|VIP|IM|大客户)/.test(l));
+
+            const codeLines = codesText.split(/[\r\n]+/)
+                .map(l => l.trim())
+                .filter(l => /\d{1,2}:\d{2}|OFF|REST|MC|AL|PH/.test(l) && !/月\d+日/.test(l));
+
+            const count = Math.min(names.length, codeLines.length);
+            if(count === 0) throw new Error("未找到有效数据行。");
+
+            let totalCount = 0;
+            let matchedPeople = new Map();
+
+            for(let i=0; i<count; i++) {
+                const name = names[i];
+                const codes = codeLines[i].split(/[\t\s]+/).filter(Boolean);
+                let personCount = 0;
+
+                codes.forEach(code => {
+                    if (code.toUpperCase().includes(searchCode)) {
+                        personCount++;
+                    }
+                });
+
+                if (personCount > 0) {
+                    matchedPeople.set(name, personCount);
+                    totalCount += personCount;
+                }
+            }
+
+            // 3. 输出结果
+            const listOutput = Array.from(matchedPeople.entries())
+                .map(([name, count]) => `${name}: ${count} 次`)
+                .join('\n');
+            
+            const summaryOutput = `搜索代码：${searchCode}\n\n🎉 总计出现次数：\n${totalCount} 次\n\n👤 涉及总人数：\n${matchedPeople.size} 人`;
+
+            $('out3_list').value = listOutput || `没有找到包含 "${searchCode}" 的班次。`;
+            $('out3_summary').value = summaryOutput;
+
+            AppUI.setStatus('st3', `搜索成功！找到 ${totalCount} 次匹配，涉及 ${matchedPeople.size} 人。`, 'ok');
+
+        } catch (e) {
+            $('out3_list').value = '';
+            $('out3_summary').value = '';
+            AppUI.setStatus('st3', `搜索失败：${e.message}`, 'error');
+            console.error(e);
+        }
+    }
+
+    // --- Tab 4: 可视化排班表 (修复 Bug 2) ---
+    function t4_render() {
+        saveT4(); // 渲染前确保数据已保存
         try {
             const dText = $('in_dates').value;
             const nText = $('in_names').value;
@@ -419,7 +529,7 @@ const App = (function(){
             if(!dText || !nText || !cText) throw new Error("请填满三个输入框");
             
             const days = extractDates(dText);
-            if(days.length === 0) throw new Error("未识别到日期 (如 12月1日)");
+            if(days.length === 0) throw new Error("日期数据解析失败 (如 12月1日)。");
 
             const names = nText.split(/[\r\n]+/)
                 .map(l => l.trim())
@@ -430,7 +540,15 @@ const App = (function(){
                 .filter(l => /\d{1,2}:\d{2}|OFF|REST|MC|AL|PH/.test(l) && !/月\d+日/.test(l));
 
             const count = Math.min(names.length, codeLines.length);
-            if(count === 0) throw new Error("未找到有效数据行");
+            if(count === 0) throw new Error("未找到有效的姓名或班次数据行。");
+
+            // 检查班次数量是否与日期数量匹配
+            for(let i=0; i<count; i++) {
+                 const codes = codeLines[i].split(/[\t\s]+/).filter(Boolean);
+                 if (codes.length < days.length) {
+                    throw new Error(`第 ${i + 1} 行 (${names[i]}) 班次数量 (${codes.length}) 少于日期数量 (${days.length})。请检查。`);
+                 }
+            }
 
             const rows = [];
             for(let i=0; i<count; i++) {
@@ -454,6 +572,7 @@ const App = (function(){
             const data = { days, rows };
             const container = $('table_container');
             
+            // ... (HTML Table Generation Logic) ...
             let html = '<table><thead><tr>';
             html += '<th style="min-width:120px; z-index:50;">人员名单</th>';
             data.days.forEach(d => {
@@ -487,7 +606,6 @@ const App = (function(){
             container.style.display = 'block';
             $('visual_placeholder').style.display = 'none';
             AppUI.msgT4(`成功生成 ${data.rows.length} 人的排班表`);
-            save(); // 渲染成功后保存数据
 
         } catch(e) {
             AppUI.msgT4(e.message, true);
@@ -504,7 +622,7 @@ const App = (function(){
         }
     }
 
-    return { t1_parse, t2_compare, t4_render };
+    return { t1_parse, t2_compare, t3_search, t4_render, loadSavedData };
 })();
 
 // 初始化：设置默认 Tab
