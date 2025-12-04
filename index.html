@@ -306,7 +306,7 @@
 </div>
 
 <div class="footer">
-    飞书排班可视化看板 · Version <span>V6.4 (2025/12/04 增强版)</span>
+    飞书排班可视化看板 · Version <span>V6.5 (2025/12/04 增强版)</span>
 </div>
 
 <script>
@@ -479,50 +479,53 @@ const App = (function(){
 
     // --- 通用工具函数 ---
 
-    // V6.4 升级：班次代码转为时间段 (增加对早早、中、晚晚、精确时间、复杂括号的支持)
+    // V6.4 升级：班次代码转为时间段
     function shiftCodeToTimeRange(code) {
         if (!code) return "";
         let baseCode = code.toUpperCase().trim();
         let startTime = null;
 
         // 1. 清理复杂标记，获取纯代码
-        baseCode = baseCode.replace(/[\(\)（）].*/, ''); // 移除所有括号及之后的内容
-        baseCode = baseCode.replace(/-\d+[H|M].*/i, ''); // 移除 -1H 或 -2H 这类后缀 (如 AL-1H)
-        baseCode = baseCode.replace(/[^A-Z0-9:]/g, ''); // 移除除字母数字冒号以外的所有字符 (如 PH, MC, 9:00)
+        baseCode = baseCode.replace(/[\(\)（）].*/, ''); 
+        baseCode = baseCode.replace(/-\d+[H|M].*/i, ''); 
+        // 保留时间格式和字母
+        const cleanedCode = baseCode.replace(/[^A-Z0-9:]/g, ''); 
 
         // 2. 核心班次映射 (9小时工时)
         const mappings = {
             '早早': '08:00',
             '白': '09:00',
             '中': '12:00',
-            '晚': '15:00', // 默认15:00为晚班，如果是非时间格式
+            '晚': '15:00', 
             '晚晚': '17:00',
-            '夜': '00:00', // 默认00:00为夜班
+            '夜': '00:00', 
         };
 
-        if (mappings[baseCode]) {
-            startTime = mappings[baseCode];
+        if (mappings[cleanedCode]) {
+            startTime = mappings[cleanedCode];
         } else {
             // 检查是否为精确时间 (如 09:00:00, 16:00, 8:00)
-            const timeMatch = baseCode.match(/^(\d{1,2}):(\d{2})(:00)?$/);
+            const timeMatch = cleanedCode.match(/^(\d{1,2}):(\d{2})(:00)?$/);
             if (timeMatch) {
                 const hour = parseInt(timeMatch[1]);
                 const minute = timeMatch[2];
-                // 修正：0点班次是夜班
+                // 0点班次是夜班
                 if (hour === 0) return '00:00 - 09:00'; 
+                
+                // 兼容 8:00 和 9:00 (自动补零)
                 startTime = `${String(hour).padStart(2, '0')}:${minute}`;
-            } else if (baseCode === 'REST' || baseCode === 'OFF') {
+            } else if (cleanedCode === 'REST' || cleanedCode === 'OFF') {
                 return '休息';
-            } else if (baseCode === 'AL' || baseCode === 'MC' || baseCode === 'PH' || baseCode === 'UPL') {
-                return baseCode; // 请假代码直接返回
-            } else if (baseCode === '请假') {
+            } else if (/AL|MC|PH|UPL|LATE/.test(cleanedCode)) {
+                return cleanedCode; 
+            } else if (cleanedCode === '请假') {
                 return '请假';
-            } else if (baseCode === '病假') {
+            } else if (cleanedCode === '病假') {
                 return 'MC';
-            } else if (baseCode === '年假') {
+            } else if (cleanedCode === '年假') {
                 return 'AL';
-            } else if (baseCode.length > 0) {
-                 // 识别如 TRAINING, 团建, 支援, 马来 等非标准代码
+            } else if (code.trim().length > 0) {
+                 // 识别如 TRAINING, 团建, 支援, 马来, HL 等非标准代码
                  return code.trim(); 
             } else {
                 return "";
@@ -534,7 +537,6 @@ const App = (function(){
             const [hour, minute] = startTime.split(':').map(Number);
             let endHour = hour + 9;
             
-            // 处理跨天 (例如 16:00 + 9h = 25:00 -> 01:00)
             if (endHour >= 24) {
                 endHour -= 24; 
             }
@@ -560,43 +562,53 @@ const App = (function(){
         return [];
     }
     
-    // V6.4 修正：增强版班次代码提取，处理更复杂的行内容
+    // V6.5 增强：更严格的班次代码行过滤
     function extractCodes(text) {
         const lines = text.split(/[\r\n]+/)
             .map(l => l.trim())
-            .filter(l => l); // 移除空行
+            .filter(l => l); 
         
         if (lines.length === 0) return [];
         
         let targetLine = null;
-        
-        // 尝试找到最像班次代码的行：不包含日期且包含班次代码（排除纯名字）
+        let potentialLines = [];
+
         for (const line of lines) {
             const isDateLine = /月\d+日|星期/.test(line);
-            const containsCode = /\d{1,2}:\d{2}|OFF|REST|MC|AL|PH|UPL|早早|白|中|晚|晚晚|夜/i.test(line);
-            const isNameOnly = /^[\u4e00-\u9fa5A-Za-z\s]+$/.test(line) && !containsCode;
+            // 检查行中是否包含任何有效的班次代码或时间，排除纯数字或纯零的统计行
+            const containsValidCode = /\d{1,2}:\d{2}|OFF|REST|MC|AL|PH|UPL|早早|白|中|晚|晚晚|夜/i.test(line);
+            
+            // V6.5 核心过滤逻辑：排除明显的统计行
+            const isPureNumbers = /^[\s\d,，]+$/.test(line.replace(/\s/g, '')); // 排除纯数字或逗号的行
+            const isPureZeros = /^[\s0,，]+$/.test(line.replace(/\s/g, '')); // 排除纯零的行
+            const isTooShort = line.split(/[\t\s,，]+/).filter(Boolean).length < 5; // 排除代码数太少的行 (防止误把"白"识别成数据行)
+            
+            // 排除包含特定非班次关键词的行
+            const isMetadata = /TICKET|VIP班表|大客户经理|IM号|白9:00|晚15:00|休|早早|白|中|晚/i.test(line);
 
-            if (containsCode && !isDateLine && !isNameOnly) {
-                 // 检查是否有很长的文本（可能是合并单元格的干扰）
-                 if (line.length > 200) continue; 
-                 targetLine = line;
-                 break;
+            if (containsValidCode && !isDateLine && !isPureNumbers && !isPureZeros) {
+                 potentialLines.push(line);
             }
         }
         
-        // 如果找不到，尝试取最后一行（兜底）
+        // 1. 尝试找到包含最多代码的行
+        if (potentialLines.length > 0) {
+            potentialLines.sort((a, b) => b.split(/[\t\s,，]+/).filter(Boolean).length - a.split(/[\t\s,，]+/).filter(Boolean).length);
+            targetLine = potentialLines[0];
+        }
+
+        // 2. 如果找不到，回退到原始逻辑（可能不准确，但保留）
         if (!targetLine && lines.length > 0) {
             targetLine = lines[lines.length - 1];
         } else if (!targetLine) {
             return [];
         }
 
-        // V6.4 改进：用更宽泛的分隔符切割，并清理半天假括号内的内容
+        // 3. 切割并清理班次代码
         return targetLine.split(/[\t\s,，]+/).map(code => {
-            // 清理掉半天假、培训等标记 (只保留主要的班次代码或请假类型)
             const cleanCode = code.replace(/[\(\)（）].*/, '').trim(); 
-            return cleanCode || code.trim(); // 如果清理后为空，则用原始代码
-        }).filter(Boolean); // 过滤空字符串
+            return cleanCode || code.trim(); 
+        }).filter(Boolean); 
     }
 
     
@@ -608,17 +620,13 @@ const App = (function(){
 
         const names = lines.filter(line => {
             // 1. 排除包含非人名关键词的行
-            if (/(大客户经理|IM号|工号|Z-\d+|邮箱|@|白9:00|晚15:00|休息|蓝色|绿色|白色)/i.test(line) ||
-                /^[\u4e00-\u9fa5A-Z]{1,2}([\s\-\_]|\d)/.test(line) // 排除像 "白", "晚", "夜" 或 "李" 这样的短中文或带短横线/数字的
+            if (/(大客户经理|IM号|工号|Z-\d+|邮箱|@|白9:00|晚15:00|休息|蓝色|绿色|白色|TICKET|VIP班表|早早|白|中|晚|晚晚|夜|吉隆坡|支援账户组)/i.test(line) ||
+                /^[\u4e00-\u9fa5A-Z]{1,2}([\s\-\_]|\d)/.test(line) // 排除像 "白", "晚", "李" 这样的短中文或带短横线/数字的
                ) 
             {
-                // 确保不排除如 "Candace Cheng 程安顺" 这种很长且包含中英文全名的
-                if (line.length < 5 && /[\u4e00-\u9fa5]{2,}|[A-Za-z]{3,}/.test(line)) {
-                     // 允许保留长度超过4，或同时包含中文名和英文名（长度超过5）的
-                     if (line.length > 4 && /[\u4e00-\u9fa5]/.test(line) && /[A-Za-z]/.test(line)) {
-                         return true;
-                     }
-                     return false;
+                // 允许保留长度超过4，或同时包含中文名和英文名（长度超过5）的
+                if (line.length > 4 && /[\u4e00-\u9fa5]/.test(line) && /[A-Za-z]/.test(line)) {
+                    return true;
                 }
                 
                 // 排除明确的工号或邮箱
@@ -789,7 +797,6 @@ const App = (function(){
             
             const uniqueNames = [...new Set(rawSelectedNames)];
             if (uniqueNames.length < rawSelectedNames.length) {
-                // 仅警告不中断，但使用去重后的名单
                 console.warn("发现重复选择的员工，已自动去重。");
             }
 
@@ -800,7 +807,7 @@ const App = (function(){
                 const scheduleMap = new Map();
                 row.codes.forEach((code, index) => {
                     if(SharedData.days[index]) {
-                        scheduleMap.set(SharedData.days[index].full, code.toUpperCase().replace(/[\(\)（）].*/, '').trim()); // 清理班次代码
+                        scheduleMap.set(SharedData.days[index].full, code.toUpperCase().replace(/[\(\)（）].*/, '').trim()); 
                     }
                 });
                 return { name, schedule: scheduleMap };
@@ -853,7 +860,6 @@ const App = (function(){
 
                 const scheduleMap = new Map();
                 for(let i=0; i < dayKeys.length; i++) {
-                    // 确保手动模式下的代码也被清理，以匹配严格比较
                     scheduleMap.set(dayKeys[i], codes[i].toUpperCase().replace(/[\(\)（）].*/, '').trim()); 
                 }
                 schedules.push({ name: p.name, schedule: scheduleMap });
@@ -881,8 +887,8 @@ const App = (function(){
             for (const p of schedules) {
                 const shift = p.schedule.get(dateKey);
                 
-                // 1. 检查是否休息或请假 (OFF, REST, MC, AL, PH, UPL, LATE, 请假, 病假, 年假)
-                if (!shift || /OFF|REST|MC|AL|PH|UPL|LATE|请假|病假|年假|团建|培训|支援|马来/i.test(shift)) {
+                // 1. 检查是否休息或请假 (OFF, REST, MC, AL, PH, UPL, LATE, 请假, 病假, 年假, 团建, 培训, 支援, 马来)
+                if (!shift || /OFF|REST|MC|AL|PH|UPL|LATE|请假|病假|年假|团建|培训|支援|马来|HL|EL/i.test(shift)) {
                     isWorking = false;
                     break;
                 }
@@ -956,7 +962,7 @@ const App = (function(){
 
             const names = extractNames(namesText); 
             
-            // 提取班次矩阵，不进行日期行过滤，只过滤掉明显的非班次行
+            // 提取班次矩阵
             const codeLines = codesText.split(/[\r\n]+/)
                 .map(l => l.trim())
                 .filter(l => l && !/月\d+日|星期|IM号|大客户经理|白9:00|晚15:00|休/.test(l));
@@ -996,7 +1002,6 @@ const App = (function(){
             let personCount = 0;
 
             codes.forEach(code => {
-                // V6.4 改进：搜索逻辑使用 startsWith 或 includes 以匹配半天假等情况
                 const cleanedCode = code.toUpperCase().replace(/[\(\)（）].*/, '').trim();
                 
                 if (cleanedCode.startsWith(searchCode) || code.toUpperCase().includes(searchCode)) {
@@ -1048,23 +1053,22 @@ const App = (function(){
             let rowWarningCount = 0;
             
             for(let i=0; i<count; i++) {
-                const codes = codeLines[i].split(/[\t\s,，]+/).filter(Boolean);
+                const codes = extractCodes(codeLines[i]); // 使用增强的 extractCodes 函数
                  
-                 if (codes.length < days.length) {
-                    // 警告但继续处理
+                if (codes.length < days.length) {
                     console.warn(`第 ${i + 1} 行 (${names[i]}) 班次数量 (${codes.length}) 少于日期数量 (${days.length})。`);
                     rowWarningCount++;
                  }
                 
                 let stats = { off:0, work:0, leave:0 };
                 const processedCodes = codes.slice(0, days.length).map(c => {
-                    const uc = c.toUpperCase().replace(/[\(\)（）\s].*/, '').trim(); // 清理代码以便统计
+                    const uc = c.toUpperCase().replace(/[\(\)（）\s].*/, '').trim(); 
                     
                     if(/OFF|REST/.test(uc)) stats.off++;
-                    else if(/MC|AL|PH|UPL|LATE|请假|病假|年假/.test(uc)) stats.leave++;
-                    else if(uc.length > 0) stats.work++; // 任何非请假/休息代码都算工作，包括 TRAINING, 团建等
+                    else if(/MC|AL|PH|UPL|LATE|请假|病假|年假|HL|EL/.test(uc)) stats.leave++;
+                    else if(uc.length > 0) stats.work++; 
                     
-                    return c; // 原始代码用于显示
+                    return c; 
                 });
                 
                 rows.push({
@@ -1074,7 +1078,11 @@ const App = (function(){
                 });
             }
             
-            const data = { days, rows };
+            // V6.5 修正：过滤掉空行，因为某些名字可能因为前面的干扰行被错误地匹配到了空数据行
+            const finalRows = rows.filter(row => row.codes.filter(c => c.length > 0).length > 0);
+            if (finalRows.length === 0) throw new Error("无法从提供的数据中提取到任何有效班次。请检查姓名和班次行是否对齐。");
+
+            const data = { days, rows: finalRows };
             SharedData = data; 
             
             const container = $('table_container');
@@ -1085,14 +1093,13 @@ const App = (function(){
             data.days.forEach(d => {
                 html += `<th>${d.month}/${d.day}</th>`;
             });
-            html += '<th class="stats-col">出勤</th><th class="stats-col">请/休假</th>'; // V6.4 修正列名
+            html += '<th class="stats-col">出勤</th><th class="stats-col">请/休假</th>'; 
             html += '</tr></thead><tbody>';
 
             data.rows.forEach(row => {
                 html += `<tr>`;
                 html += `<th>${row.name}</th>`;
                 
-                // V6.4 修正：确保只渲染到有数据的天数，其余为空
                 const renderedCodes = row.codes.map(c => {
                      const typeClass = getCodeClass(c);
                      return `<td><div class="cell-inner ${typeClass}">${c}</div></td>`;
@@ -1106,7 +1113,6 @@ const App = (function(){
                 }
 
                 html += `<td class="stats-col">${row.stats.work}</td>`;
-                // V6.4 修正：休假/请假都算在第二列
                 const combinedLeave = row.stats.leave + row.stats.off;
                 html += `<td class="stats-col" style="color:${row.stats.leave>0?'red':'inherit'}">${combinedLeave}</td>`;
                 
@@ -1135,17 +1141,16 @@ const App = (function(){
         function getCodeClass(code) {
             const s = code.toUpperCase().replace(/[\(\)（）\s].*/, '').trim(); 
             if (s === 'OFF' || s === 'REST') return 'type-off';
-            if (/MC|PH|UPL|LATE|请假|病假/.test(s)) return 'type-leave';
+            if (/MC|PH|UPL|LATE|请假|病假|HL|EL/.test(s)) return 'type-leave';
             if (s === 'AL' || s === '年假') return 'type-al';
-            // 晚班 (15点, 16点, 17点, 夜)
+            
             if (s.includes('15:') || s.includes('16:') || s.includes('17:') || s.includes('晚') || s === '夜') return 'type-night';
-            // 早班 (8点, 9点, 12点, 白, 早早, 中)
+            
             if (/\d{1,2}:\d{2}/.test(s) || /早|白|中/.test(s) || s.includes('8:') || s.includes('9:') || s.includes('12:')) return 'type-work';
             
-            return ''; // 其他如 团建，培训
+            return ''; 
         }
 
-        // 刷新其他 Tab 的共享数据状态
         App.checkSharedData('t1');
         App.checkSharedData('t2');
         App.checkSharedData('t3');
