@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>飞书排班可视化看板 V6.10</title>
+    <title>飞书排班可视化看板 V6.11</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/locale/zh-cn.js"></script>
@@ -157,13 +157,26 @@
             text-align: center;
             border-right: 1px solid #f0f0f0;
             border-bottom: 1px solid #f0f0f0;
-            min-width: 80px; /* 默认列宽 */
-            max-width: 80px; /* 默认列宽 */
+            min-width: 80px; /* 默认最小列宽 */
+            /* 关键修改：移除 max-width: 80px; 让它自由伸缩 */
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             background-color: #fff; /* 确保单元格背景是白色 */
         }
+        
+        /* 姓名列（第一列）的固定样式 - 保持固定宽度 */
+        .schedule-table th:first-child, .schedule-table td:first-child {
+            text-align: left;
+            padding-left: 15px;
+            min-width: 150px;
+            max-width: 150px; /* 姓名列保持固定宽度 */
+            position: sticky;
+            left: 0;
+            z-index: 11; /* 姓名列 z-index 高于普通表头 */
+            background-color: #fff;
+        }
+
 
         .schedule-table thead th {
             background-color: #fafafa;
@@ -172,18 +185,6 @@
             position: sticky; /* 固定表头 */
             top: 0;
             z-index: 10;
-        }
-
-        /* 固定第一列（姓名列） */
-        .schedule-table th:first-child, .schedule-table td:first-child {
-            text-align: left;
-            padding-left: 15px;
-            min-width: 150px;
-            max-width: 150px;
-            position: sticky;
-            left: 0;
-            z-index: 11; /* 姓名列 z-index 高于普通表头 */
-            background-color: #fff;
         }
 
         /* 左上角单元格固定 */
@@ -201,7 +202,7 @@
         .shift-special { background-color: #f9f0ff; color: #722ed1; } /* 浅紫 */
         
         /* T1: 可视化排班表 */
-        #tab-t1 textarea {
+        #tab-t4 textarea {
             width: 100%;
             height: 200px;
             padding: 10px;
@@ -282,67 +283,13 @@
         .t4-filters .form-group {
             margin-bottom: 0;
         }
-
-        /* Dropdown 样式 */
-        .dropdown-container {
-            position: relative;
-            display: inline-block;
-        }
-
-        .dropdown-select {
-            padding: 8px 15px;
-            border: 1px solid #d9d9d9;
-            border-radius: 4px;
-            background-color: #fff;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            min-width: 200px;
-        }
-
-        .dropdown-menu {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background-color: #fff;
-            border: 1px solid #e8e8e8;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            border-radius: 4px;
-            z-index: 100;
-            max-height: 300px;
-            overflow-y: auto;
-            margin-top: 5px;
-            display: none;
-        }
-
-        .dropdown-menu.show {
-            display: block;
-        }
-
-        .dropdown-item {
-            padding: 8px 15px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .dropdown-item:hover {
-            background-color: #f0f0f0;
-        }
-
-        .dropdown-item.selected {
-            background-color: #e6f7ff;
-            color: #1890ff;
-            font-weight: 500;
-        }
     </style>
 </head>
 <body>
 
 <div class="header">
     <h1>飞书排班可视化看板</h1>
-    <span>V6.10 - 2025.12.04</span>
+    <span>V6.11 - 2025.12.04</span>
 </div>
 
 <div class="container">
@@ -484,7 +431,9 @@
         if (/MC|病假/.test(cleanCode)) return 'MC';
         
         // 5. 尝试提取纯时间格式 (e.g., 9:00-18:00 -> 9:00-18:00)
-        if (/\d{1,2}:\d{2}/.test(cleanCode)) return cleanCode;
+        // 仅保留第一个时间点作为标准化代码，例如 9:00-18:00 -> 9:00
+        const timeMatch = cleanCode.match(/\d{1,2}:\d{2}/);
+        if (timeMatch) return timeMatch[0];
 
         // 6. 最后的通用清理
         return cleanCode;
@@ -520,18 +469,29 @@
         
         // 查找第一个有效日期，并构建全局日期数组
         globalDates = [];
+        // 假设当前年份为 2025 (因为导入的排班表通常不含年份)
+        const currentYear = dayjs().format('YYYY'); 
+        
         for (let i = 0; i < dateHeaders.length; i++) {
             // 尝试解析日期，格式如 "12月1日(周五)" 或 "12/1 (五)"
             let dateStr = dateHeaders[i].replace(/[\(\（].*[\)\）]/g, '').trim();
-            // 尝试多种日期格式，优先年/月/日
-            let dateObj = dayjs(dateStr, ['YYYY/M/D', 'M/D', 'M月D日'], true);
             
-            // 如果解析失败，尝试加上当前年份 (假设当前年份为 2025)
+            let dateObj;
+            
+            // 尝试 M月D日 或 M/D 格式，并补上当前年份
+            dateObj = dayjs(`${currentYear}/${dateStr}`, ['YYYY/M月D日', 'YYYY/M/D'], true);
+            
+            // 如果解析失败，尝试直接解析不带年份的 M/D
             if (!dateObj.isValid()) {
-                 dateObj = dayjs(`2025年${dateStr}`, ['YYYY年M月D日', 'YYYY年M/D'], true);
+                 dateObj = dayjs(dateStr, ['M月D日', 'M/D'], true);
+                 if (dateObj.isValid()) {
+                     // 补上当前年份
+                     dateObj = dayjs().year(parseInt(currentYear)).month(dateObj.month()).date(dateObj.date());
+                 }
             }
+
             
-            if (dateObj.isValid()) {
+            if (dateObj && dateObj.isValid()) {
                 if (firstValidDateIndex === -1) {
                     firstValidDateIndex = i + 1; // +1 因为要跳过姓名列
                 }
@@ -592,19 +552,17 @@
         initializeT5Dates();
         
         // 显示成功的消息
-        const dateStart = dayjs(globalDates[0]).format('YYYY年M月D日');
-        const dateEnd = dayjs(globalDates[globalDates.length - 1]).format('YYYY年M月D日');
+        const dateStart = dayjs(globalDates.filter(d => d)[0]).format('YYYY年M月D日');
+        const dateEnd = dayjs(globalDates.filter(d => d).slice(-1)[0]).format('YYYY年M月D日');
         const message = `✅ 排班数据解析成功！共找到 ${globalEmployeeNames.length} 位员工，日期范围：${dateStart} 至 ${dateEnd}。`;
         
         const outputDiv = document.getElementById('schedule-output-t4');
+        const existingMessage = outputDiv.previousElementSibling;
+        if (existingMessage && existingMessage.classList.contains('message-box')) {
+             existingMessage.remove();
+        }
         outputDiv.insertAdjacentHTML('beforebegin', `<div class="message-box success">${message}</div>`);
-        // 清理旧消息
-        setTimeout(() => {
-            const oldMessages = outputDiv.previousElementSibling;
-            if (oldMessages && oldMessages.classList.contains('message-box')) {
-                oldMessages.remove();
-            }
-        }, 5000);
+        
     }
 
     // --- 2. 渲染可视化排班表 (T4) ---
@@ -646,13 +604,19 @@
                 if (date) {
                     const shiftCode = scheduleData[name][date] || '';
                     const normalizedShift = normalizeShiftCode(shiftCode);
+                    // 如果归一化代码包含冒号，则使用 shift-special (通常是时间班次)
                     const colorClass = SHIFT_COLOR_MAP[normalizedShift] || (normalizedShift.includes(':') ? 'shift-special' : '');
                     html += `<td class="${colorClass}" title="${shiftCode}">${shiftCode}</td>`;
                 } else {
                     // 渲染非日期列 (统计列)，使用原始数据
                     const originalIndex = firstDateIndex + i;
-                    const originalCells = document.getElementById('schedule-input-t4').value.split('\n').find(line => line.includes(name)).split('\t');
-                    html += `<td>${originalCells[originalIndex] || ''}</td>`;
+                    const originalRow = document.getElementById('schedule-input-t4').value.split('\n').find(line => line.includes(name));
+                    if (originalRow) {
+                        const originalCells = originalRow.split('\t');
+                        html += `<td>${originalCells[originalIndex] || ''}</td>`;
+                    } else {
+                        html += `<td></td>`;
+                    }
                 }
             }
             
@@ -688,6 +652,7 @@
             return;
         }
 
+        // 隐藏默认信息框，显示选择器
         document.getElementById('t2-message-box').style.display = 'none';
         document.getElementById('start-comparison-btn').disabled = false;
 
@@ -705,7 +670,7 @@
             selectsContainer.appendChild(select);
 
             if (i >= 2) {
-                select.style.display = 'block'; // 默认显示4个，方便选择
+                select.style.display = 'block'; 
             }
             
             // 默认选中前四个人，方便测试和演示
@@ -724,17 +689,13 @@
     }
 
     function startComparison() {
+        // 获取所有去重后的选定员工姓名
         const selectedNames = Array.from(document.querySelectorAll('.comparison-employee-select'))
             .map(select => select.value)
-            .filter(name => name);
+            .filter((name, index, self) => name && self.indexOf(name) === index); // 过滤空值并去重
 
         if (selectedNames.length < 2) {
-            alert('请至少选择 2 位员工进行比较！');
-            return;
-        }
-
-        if (selectedNames.length > 4) {
-             alert('最多只能比较 4 位员工！');
+            alert('请至少选择 2 位**不同**的员工进行比较！');
             return;
         }
 
@@ -748,25 +709,31 @@
             let isCommonShift = true;
             let firstShift = null;
 
-            selectedNames.forEach(name => {
+            // 收集所有选定员工在这一天的标准化班次
+            const shifts = selectedNames.map(name => {
                 const shiftCode = globalScheduleData[name][date] || '';
-                const normalizedShift = normalizeShiftCode(shiftCode);
-                
-                // 1. 检查是否休息或请假
-                if (['REST', 'AL', 'MC'].includes(normalizedShift) || normalizedShift === '') {
+                return normalizeShiftCode(shiftCode);
+            });
+            
+            // 检查这一天所有员工的班次是否满足“共同上班”的条件
+            for(const normalizedShift of shifts) {
+                // 1. 检查是否休息、请假或未排班
+                if (['REST', 'OFF', 'AL', 'MC', ''].includes(normalizedShift)) {
                     isCommonShift = false;
-                    return;
+                    break;
                 }
                 
                 // 2. 检查班次是否一致
                 if (firstShift === null) {
                     firstShift = normalizedShift;
                 } else if (firstShift !== normalizedShift) {
+                    // 如果有任何一个班次不一致，则不算共同上班
                     isCommonShift = false;
+                    break; 
                 }
-            });
+            }
 
-            if (isCommonShift) {
+            if (isCommonShift && firstShift) {
                 commonDates.push({ date: date, shift: firstShift });
             }
         });
@@ -785,7 +752,7 @@
         } else {
             commonDates.forEach(item => {
                 const dateObj = dayjs(item.date);
-                listDiv.innerHTML += `${dateObj.format('M月D日')}: ${item.shift}\n`;
+                listDiv.innerHTML += `${dateObj.format('M月D日 (ddd)')}: ${item.shift}\n`;
             });
         }
         
@@ -850,23 +817,25 @@ ${totalWorkingDays} 天
             
             result += `${dateObj.format('YYYY年M月D日 (ddd)')}: ${shiftCode}\n`;
             
-            if (normalizedShift !== 'REST' && normalizedShift !== 'AL' && normalizedShift !== 'MC' && shiftCode !== '') {
+            // 计算工作天数（排除休息/请假/未排班）
+            if (normalizedShift !== 'REST' && normalizedShift !== 'OFF' && normalizedShift !== 'AL' && normalizedShift !== 'MC' && shiftCode !== '') {
                  workingDays++;
             }
         });
         
         result += `\n--- 总结 ---\n`;
         result += `排班总天数: ${globalDates.filter(d => d).length} 天\n`;
-        result += `预估工作天数 (排除 REST/AL/MC): ${workingDays} 天\n`;
+        result += `预估工作天数 (排除 REST/OFF/AL/MC): ${workingDays} 天\n`;
 
         output.value = result;
     }
 
     // --- 5. 班次统计搜索 (T5) ---
     function initializeT5Dates() {
-        const today = dayjs().format('YYYY-MM-DD');
-        document.getElementById('date-start-t5').value = dayjs().startOf('month').format('YYYY-MM-DD');
-        document.getElementById('date-end-t5').value = dayjs().endOf('month').format('YYYY-MM-DD');
+        const today = dayjs();
+        // 默认设置为本月第一天和最后一天
+        document.getElementById('date-start-t5').value = today.startOf('month').format('YYYY-MM-DD');
+        document.getElementById('date-end-t5').value = today.endOf('month').format('YYYY-MM-DD');
     }
 
     function performShiftSearch() {
@@ -922,12 +891,12 @@ ${totalWorkingDays} 天
         const employeeCount = Object.keys(searchResults).filter(name => searchResults[name].length > 0).length;
 
         summaryDiv.innerHTML = `
-        搜索班次: ${targetShifts.join(' / ')}
+        搜索班次: **${targetShifts.join(' / ')}**
         日期范围: ${dateStart.format('YYYY/M/D')} 至 ${dateEnd.format('YYYY/M/D')}
         <br>
         <hr>
-        **总计天次:** ${totalOccurrences} 天次
-        **涉及员工数:** ${employeeCount} 人
+        **总计天次:** <span style="font-size: 1.2em; color:#1890ff;">${totalOccurrences}</span> 天次
+        **涉及员工数:** <span style="font-size: 1.2em; color:#1890ff;">${employeeCount}</span> 人
         `;
         
         let listHtml = '';
