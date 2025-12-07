@@ -438,7 +438,12 @@
                 </div>
                 <div class="form-group">
                     <label for="shift-code-t5">班次代码:</label>
-                    <input type="text" id="shift-code-t5" placeholder="例如: 9:00, REST, AL" value="MC">
+                    <div class="form-group">
+    <label for="shift-code-t5">选择班次:</label>
+    <select id="shift-code-t5" style="min-width: 200px;">
+        <option value="">(请先导入数据)</option>
+    </select>
+</div>
                 </div>
                 <button class="btn btn-primary" onclick="performShiftSearch()">🔎 搜索统计</button>
             </div>
@@ -596,9 +601,60 @@
         renderScheduleTable(header, globalEmployeeNames, globalDates, globalScheduleData, firstValidDateIndex, lastValidDateIndex);
 
         // 4. 初始化其他Tabs的数据
+
+        // --- 新增功能：自动提取并填充班次下拉菜单 ---
+    function updateShiftDropdown() {
+        const select = document.getElementById('shift-code-t5');
+        select.innerHTML = '<option value="">- 请选择班次 -</option>';
+
+        if (globalEmployeeNames.length === 0) return;
+
+        // 1. 收集所有出现过的班次
+        const foundShifts = new Set();
+        
+        globalEmployeeNames.forEach(name => {
+            const employeeSchedule = globalScheduleData[name];
+            // 遍历该员工每一天的班次
+            Object.values(employeeSchedule).forEach(rawCode => {
+                const code = normalizeShiftCode(rawCode); // 使用标准化后的代码
+                if (code && code !== '') {
+                    foundShifts.add(code);
+                }
+            });
+        });
+
+        // 2. 排序 (让时间显示在前，字母显示在后，看起来整齐)
+        const sortedShifts = Array.from(foundShifts).sort((a, b) => {
+            // 如果都是时间 (包含冒号)，按时间排序
+            if (a.includes(':') && b.includes(':')) return a.localeCompare(b);
+            // 如果一个是时间，一个是文字，时间排前面
+            if (a.includes(':') && !b.includes(':')) return -1;
+            if (!a.includes(':') && b.includes(':')) return 1;
+            // 都是文字，按字母排
+            return a.localeCompare(b);
+        });
+
+        // 3. 填充到下拉菜单
+        sortedShifts.forEach(code => {
+            const option = document.createElement('option');
+            option.value = code;
+            option.textContent = code; // 显示内容
+            select.appendChild(option);
+        });
+        
+        // 默认选中第一个选项（如果有的话），或者选中 MC 如果存在
+        if (sortedShifts.includes('MC')) {
+            select.value = 'MC';
+        } else if (sortedShifts.length > 0) {
+            select.value = sortedShifts[0];
+        }
+    }
+
+        
         initializeT2Selectors();
         initializeT3Selector();
         initializeT5Dates();
+        updateShiftDropdown();
         
         // 显示成功的消息
         const validDates = globalDates.filter(d => d);
@@ -872,6 +928,17 @@ ${totalWorkingDays} 天
     }
 
 function performShiftSearch() {
+    // 在 performShiftSearch 函数内部开头
+    const shiftCodeInput = document.getElementById('shift-code-t5').value; // 这里不需要 .trim() 了，因为 select 的 value 是干净的
+    
+    // 如果是空值
+    if (!shiftCodeInput) {
+        alert('请从下拉菜单中选择一个班次！');
+        return;
+    }
+    
+    // 下面的逻辑不需要变，因为 targetShifts 会处理
+    
         if (globalEmployeeNames.length === 0) {
             alert('请先在“可视化排班表”中导入并解析数据！');
             return;
