@@ -316,6 +316,34 @@
         .t4-filters .form-group {
             margin-bottom: 0;
         }
+        /* --- T5: 班次统计搜索结果优化 (垂直列表) --- */
+.search-result-date-block {
+    margin-bottom: 25px; /* 日期之间的间距 */
+}
+.search-result-date-header {
+    font-size: 16px;
+    font-weight: bold;
+    color: #1890ff; /* 标题颜色 */
+    margin-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 5px;
+}
+.search-result-name-list {
+    padding-left: 10px; /* 名字稍微缩进 */
+}
+.search-result-name-item {
+    display: block;     /* 强制换行，每行一个名字 */
+    margin-bottom: 4px; /* 名字之间的间距 */
+    color: #333;
+    font-size: 14px;
+    font-family: monospace; /* 保持与其他列表一致的字体 */
+}
+/* 调整结果容器布局，防止左侧被拉长 */
+.results-container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start; 
+}
     </style>
 </head>
 <body>
@@ -843,80 +871,103 @@ ${totalWorkingDays} 天
         document.getElementById('shift-code-t5').value = 'MC'; 
     }
 
-    function performShiftSearch() {
+function performShiftSearch() {
         if (globalEmployeeNames.length === 0) {
             alert('请先在“可视化排班表”中导入并解析数据！');
             return;
         }
-
         const dateStartStr = document.getElementById('date-start-t5').value;
         const dateEndStr = document.getElementById('date-end-t5').value;
         const shiftCodeInput = document.getElementById('shift-code-t5').value.trim();
-
+        
         if (!dateStartStr || !dateEndStr || !shiftCodeInput) {
             alert('请填写起始日期、结束日期和班次代码！');
             return;
         }
-
+        
         const dateStart = dayjs(dateStartStr);
         const dateEnd = dayjs(dateEndStr);
         
-        const targetShifts = shiftCodeInput.split(/[,\s，]+/).map(s => normalizeShiftCode(s)).filter(s => s !== '');
-
+        // 解析目标班次
+        const targetShifts = shiftCodeInput.split(/[,\s，]+/)
+            .map(s => normalizeShiftCode(s))
+            .filter(s => s !== '');
+            
         if (targetShifts.length === 0) {
             alert('请提供有效的班次代码！');
             return;
         }
-
-        const searchResults = {}; 
-        let totalOccurrences = 0;
+        
+        // --- 核心逻辑：按日期归类 ---
+        const resultsByDate = {}; // Key: 日期, Value: [员工列表]
+        let totalShiftCount = 0;
+        const involvedEmployees = new Set();
         
         const datesToSearch = globalDates.filter(d => d && dayjs(d).isBetween(dateStart, dateEnd, 'day', '[]'));
-
-        globalEmployeeNames.forEach(name => {
-            searchResults[name] = [];
+        
+        datesToSearch.forEach(date => {
+            const dayEmployees = [];
             
-            datesToSearch.forEach(date => {
+            globalEmployeeNames.forEach(name => {
                 const shiftCode = globalScheduleData[name][date] || '';
                 const normalizedShift = normalizeShiftCode(shiftCode);
                 
                 if (targetShifts.includes(normalizedShift)) {
-                    searchResults[name].push(dayjs(date).format('M月D日(ddd)'));
-                    totalOccurrences++;
+                    dayEmployees.push(name);
+                    involvedEmployees.add(name);
+                    totalShiftCount++;
                 }
             });
+            
+            if (dayEmployees.length > 0) {
+                resultsByDate[date] = dayEmployees;
+            }
         });
-
-        // 渲染结果 (V6.12 修正：优化显示)
+        
+        // --- 渲染左侧：统计汇总 ---
         const summaryDiv = document.getElementById('search-summary');
         const listDiv = document.getElementById('search-employee-list');
         
-        const employeesWithShift = Object.keys(searchResults).filter(name => searchResults[name].length > 0);
-        const employeeCount = employeesWithShift.length;
-
         summaryDiv.innerHTML = `
-        <p>搜索班次: **${targetShifts.join(' / ')}**</p>
-        <p>日期范围: ${dateStart.format('YYYY/M/D')} 至 ${dateEnd.format('YYYY/M/D')}</p>
-        <hr style="border-top: 1px solid #e8e8e8;">
+        <p>搜索班次: <br><strong>${targetShifts.join(' / ')}</strong></p>
+        <p style="font-size:12px; color:#999;">${dateStart.format('YYYY/MM/DD')} - ${dateEnd.format('MM/DD')}</p>
+        <hr style="border-top: 1px solid #e8e8e8; margin: 10px 0;">
         
-        <p>总计天次:</p>
-        <span class="summary-value">${totalOccurrences}</span>
+        <p>总计人次:</p>
+        <span class="summary-value">${totalShiftCount}</span>
         
-        <p>涉及员工数:</p>
-        <span class="summary-value">${employeeCount}</span>
+        <p>涉及人数:</p>
+        <span class="summary-value">${involvedEmployees.size}</span>
         `;
         
+        // --- 渲染右侧：日期 -> 垂直员工列表 ---
         let listHtml = '';
-        if (employeeCount === 0) {
-            listHtml = '未找到员工有此班次。';
+        const sortedResultDates = Object.keys(resultsByDate).sort();
+        
+        if (sortedResultDates.length === 0) {
+            listHtml = '<div style="padding:20px; text-align:center; color:#999;">在此日期范围内未找到指定班次。</div>';
         } else {
-            employeesWithShift.forEach(name => {
-                listHtml += `**${name}** (${searchResults[name].length} 天):\n`;
-                listHtml += `  ${searchResults[name].join(', ')}\n\n`;
+            sortedResultDates.forEach(date => {
+                const dateObj = dayjs(date);
+                const names = resultsByDate[date];
+                
+                listHtml += `
+                <div class="search-result-date-block">
+                    <div class="search-result-date-header">
+                        📅 ${dateObj.format('M月D日 (ddd)')}:
+                    </div>
+                    <div class="search-result-name-list">
+                        ${names.map(name => `<div class="search-result-name-item">${name}</div>`).join('')}
+                    </div>
+                </div>
+                `;
             });
         }
         
-        listDiv.textContent = listHtml;
+        listDiv.innerHTML = listHtml;
+        // 关键：重置样式以支持 div 布局
+        listDiv.style.whiteSpace = 'normal';
+        listDiv.style.fontFamily = 'inherit';
     }
 
 
